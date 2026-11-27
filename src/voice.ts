@@ -49,6 +49,7 @@ import { tellPlayer } from "./notify";
 import { setArousalLevel, forceOrgasm, setOrgasmDenied, orgasmDeniedByUs, ArousalLevel } from "./arousal";
 import { freezeAppearance, clearIllusion, showSee, clearSee, currentSee } from "./illusion";
 import { matchSeeRelease, matchSeeIllusion, seeActionId, parseSeeId, describeSee, seeLine, SEE_PREFIX, type SeeIllusion } from "./see";
+import { registerHiddenHandler } from "./messaging";
 import { matchFeelReal, makeReal, unmakeReal, isReal, bindingsShown, realReport, REAL_ACTION } from "./feel-real";
 import { undress, UndressResult } from "./undress";
 import {
@@ -4151,6 +4152,8 @@ function undoActionById(id: string): void {
 // Registered at module load: carry.ts needs these but importing voice.ts from it would be
 // circular, so the dependency runs one way and the functions are handed over.
 registerCarryHandlers(applyActionById, undoActionById);
+// The bondage picker's item (v1.23.0).
+registerHiddenHandler("see-item", handlePickedItem);
 
 // --- surviving a disconnect ---------------------------------------------------------------
 // A trigger was never part of the session — the whole point of one is that it fires outside
@@ -4861,26 +4864,54 @@ function handleSeeIllusion(sender: number, content: string): boolean {
 		log(`heard an illusion from ${sender} but they didn't say your name — ignoring`);
 		return true;
 	}
+	landSee(sender, see);
+	return true;
+}
+
+/** An illusion from the hypnotist's bondage picker (v1.23.0, popup-items.ts): the exact item and
+ * options, sent privately when the line they typed went out. The same checks as a spoken one. One
+ * item, an Item slot, an asset her own client knows. */
+export function handlePickedItem(sender: number, message: any): void {
+	const see = typeof message?.id === "string" ? parseSeeId(message.id) : null;
+	if (!see || see.kind !== "bind" || see.ghosts.length !== 1) {
+		log(`see-item from ${sender}: not one item`);
+		return;
+	}
+	const g = see.ghosts[0];
+	const asset = typeof AssetGet === "function" ? AssetGet(Player?.AssetFamily ?? "Female3DCG", g.group, g.asset) : null;
+	if (!asset || asset?.Group?.Category !== "Item") {
+		tellHypnotist(sender, `[suggestion] Their client doesn't know that item (${g.group}/${g.asset}).`);
+		return;
+	}
+	if (!isSessionActiveWith(sender)) {
+		log(`see-item from ${sender} but no active session with them`);
+		return;
+	}
+	landSee(sender, see);
+}
+
+/** Lands an illusion: permission, recording, depth, then drawn, with what the hypnotist is told. */
+function landSee(sender: number, see: SeeIllusion): void {
 	const f = getFeatures();
 	if (!f.hypnoEnabled || !f.illusionControl) {
 		tellHypnotist(sender, '[suggestion] Refused — they have not enabled "Illusions".');
-		return true;
+		return;
 	}
 	const id = seeActionId(see);
 	const recorded = recordAction(id);
 	if (recorded) {
 		tellPlayer(recorded);
-		return true;
+		return;
 	}
 	const refusal = depthRefusal("illusionControl");
 	if (refusal) {
 		tellHypnotist(sender, `[suggestion] Refused — an illusion ${refusal}.`);
-		return true;
+		return;
 	}
 	const result = showSee(see);
 	if (!result) {
 		tellHypnotist(sender, "[suggestion] It didn't take: their client couldn't draw it.");
-		return true;
+		return;
 	}
 	tellPlayer(seeLine(see));
 	trackSee(see.kind);
@@ -4895,7 +4926,7 @@ function handleSeeIllusion(sender: number, content: string): boolean {
 		if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
 		else tellHypnotist(sender, bindReminder((Player?.Nickname || Player?.Name || "Missy") as string));
 	}
-	return true;
+	return;
 }
 
 /** "Missy, you feel a hand on your thigh" (v1.19.0): a touch nobody gives her, felt as a real one

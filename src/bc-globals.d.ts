@@ -16,6 +16,8 @@ declare const ChatRoomData: { Name?: string } | null;
 // BC's shared asset definitions. Item.Asset points into this array, so mutating an entry
 // affects that asset on every character at once (see effects.ts's ensureEffectsAllowed).
 declare const Asset: any[];
+declare const TypedItemDataLookup: Record<string, any> | undefined;
+declare const ModularItemDataLookup: Record<string, any> | undefined;
 declare function ServerSend(message: string, data: any): void;
 declare function ChatRoomCharacterUpdate(character: any): void;
 declare function ServerPlayerIsInChatRoom(): boolean;

@@ -53,3 +53,4 @@ export * as popupTouch from "../src/popup-touch";
 export * as withoutEchs from "../src/without-echs";
 export * as see from "../src/see";
 export * as feelReal from "../src/feel-real";
+export * as popupItems from "../src/popup-items";

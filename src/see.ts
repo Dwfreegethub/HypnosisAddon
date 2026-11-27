@@ -288,8 +288,19 @@ export function describeSee(s: SeeIllusion): string {
 	}
 	const byAsset = new Map<string, string[]>();
 	for (const g of s.ghosts) {
-		const w = ASSET_WORDS[g.asset] ?? g.asset;
-		byAsset.set(w, [...(byAsset.get(w) ?? []), GROUP_WORDS[g.group] ?? g.group]);
+		// A picked item (v1.23.0) by BC's own name for it; the spoken ones by their plain word.
+		let w = ASSET_WORDS[g.asset];
+		if (!w || g.record) {
+			let desc = "";
+			try {
+				const a = typeof AssetGet === "function" ? AssetGet((typeof Player !== "undefined" && Player?.AssetFamily) || "Female3DCG", g.group, g.asset) : null;
+				if (typeof a?.Description === "string" && !a.Description.startsWith("MISSING")) desc = a.Description;
+			} catch {
+				// no BC here (the suites' pure checks)
+			}
+			w = desc || w || g.asset.replace(/([a-z])([A-Z])/g, "$1 $2");
+		}
+		byAsset.set(w, [...(byAsset.get(w) ?? []), GROUP_WORDS[g.group] ?? g.group.replace(/^Item/, "").toLowerCase()]);
 	}
 	return `you see ${[...byAsset].map(([w, parts]) => `${w} on your ${parts.join(" and ")}`).join(", ")}`;
 }

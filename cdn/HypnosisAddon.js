@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.22.1. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.23.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -379,6 +379,355 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/see.ts
+  function garmentSlots(word) {
+    for (const [re, slots] of GARMENTS) if (re.test(word)) return slots;
+    return null;
+  }
+  function matchStrip(rest) {
+    if (/^(?:completely |totally |stark |entirely )?(?:naked|nude|undressed|bare|unclothed)\b/.test(rest)) return { kind: "strip", slots: "all" };
+    if (/^(?:with nothing on|wearing nothing|without (?:any |your )?clothes)\b/.test(rest)) return { kind: "strip", slots: "all" };
+    if (/^topless\b/.test(rest)) return { kind: "strip", slots: [...TOP, "Bra"] };
+    if (/^bottomless\b/.test(rest)) return { kind: "strip", slots: [...BOTTOM, "Panties", "Garters"] };
+    if (/^(?:in|wearing) (?:only |just |nothing but )?(?:your )?(?:underwear|lingerie)\b/.test(rest)) return { kind: "strip", slots: [...TOP, ...BOTTOM, "Gloves"] };
+    const without = /^without (?:your |a |any )?(.+)$/.exec(rest);
+    if (without) {
+      const slots = [];
+      for (const raw of without[1].split(/\s*(?:,|\band\b|\bor\b)\s*(?:your |a |any )?/)) {
+        const word = raw.trim().replace(/\b(?:on|anymore|any more|now)$/, "").trim();
+        if (!word) continue;
+        const got = garmentSlots(word);
+        if (!got) break;
+        for (const s of got) if (!slots.includes(s)) slots.push(s);
+      }
+      if (slots.length) return { kind: "strip", slots };
+    }
+    return null;
+  }
+  function materialOf(word) {
+    if (!word) return null;
+    if (/^(?:rope|ropes|hemp|cord|cords|rope bindings)$/.test(word)) return "rope";
+    if (/^(?:cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs)$/.test(word)) return "cuffs";
+    if (/^(?:chains?|chain)$/.test(word)) return "chains";
+    if (/^(?:tape|duct tape|duck tape)$/.test(word)) return "tape";
+    if (/^(?:leather|straps|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)$/.test(word)) return "leather";
+    if (/^(?:cloth|a cloth|silk|a scarf|scarf)$/.test(word)) return "rope";
+    return null;
+  }
+  function partOf(word) {
+    if (/^(?:wrists?|arms?|hands?|elbows?)$/.test(word)) return "arms";
+    if (/^(?:legs?|knees?|thighs?)$/.test(word)) return "legs";
+    if (/^(?:ankles?|feet|foot)$/.test(word)) return "feet";
+    if (/^(?:body|chest|torso|breasts)$/.test(word)) return "torso";
+    if (/^(?:mouth|lips)$/.test(word)) return "mouth";
+    if (/^(?:eyes)$/.test(word)) return "eyes";
+    return null;
+  }
+  function ghostsFor(material, parts) {
+    const out = [];
+    for (const p of parts) {
+      const g = MATERIAL_ASSETS[material][p] ?? (p === "mouth" || p === "eyes" ? MATERIAL_ASSETS.leather[p] : MATERIAL_ASSETS.rope[p === "torso" ? "torso" : p]);
+      if (g && !out.some((o) => o.group === g.group)) out.push(g);
+    }
+    return out;
+  }
+  function partsIn(text2) {
+    const parts = [];
+    for (const m of text2.matchAll(new RegExp(String.raw`\b${PART_WORDS}\b`, "g"))) {
+      const p = partOf(m[0]);
+      if (p && !parts.includes(p)) parts.push(p);
+    }
+    return parts;
+  }
+  function matchBind(line, rest) {
+    if (rest !== null) {
+      const m = new RegExp(String.raw`^(?:all )?(tied up|tied|bound|trussed up|cuffed|handcuffed|shackled|chained(?: up)?|taped(?: up)?|gagged|blindfolded)(?: (?:in|with) (${MATERIAL_WORDS}))?(?: and (gagged|blindfolded))?\b`).exec(rest);
+      if (m) {
+        const verb = m[1].replace(/ up$/, "");
+        const mat = materialOf(m[2]) ?? VERB_MATERIAL[verb] ?? (verb === "gagged" || verb === "blindfolded" ? "leather" : "rope");
+        let parts = verb === "gagged" ? ["mouth"] : verb === "blindfolded" ? ["eyes"] : verb === "cuffed" || verb === "handcuffed" || verb === "shackled" || verb === "chained" ? ["arms", "feet"] : ["arms", "legs", "feet"];
+        if (m[3]) parts = [...parts, m[3] === "gagged" ? "mouth" : "eyes"];
+        const ghosts = ghostsFor(mat, parts);
+        if (m[3] && mat !== "leather" && mat !== "rope" && mat !== "tape") {
+          const extra = MATERIAL_ASSETS.leather[m[3] === "gagged" ? "mouth" : "eyes"];
+          if (!ghosts.some((g) => g.group === extra.group)) ghosts.push(extra);
+        }
+        return ghosts.length ? { kind: "bind", ghosts } : null;
+      }
+      const withParts = new RegExp(String.raw`^with ((?:your )?${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (tied|bound|cuffed|chained|taped)(?: (?:together|up|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(rest);
+      if (withParts) {
+        const mat = materialOf(withParts[3]) ?? VERB_MATERIAL[withParts[2]] ?? "rope";
+        const ghosts = ghostsFor(mat, partsIn(withParts[1]));
+        return ghosts.length ? { kind: "bind", ghosts } : null;
+      }
+    }
+    const yours = new RegExp(String.raw`\byour (${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (?:are|is) (?:now |all )?(tied|bound|cuffed|chained|taped)(?: (?:together|up|tight|tightly|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(line);
+    if (yours) {
+      const mat = materialOf(yours[3]) ?? VERB_MATERIAL[yours[2]] ?? "rope";
+      const ghosts = ghostsFor(mat, partsIn(yours[1]));
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    const onYou = new RegExp(String.raw`\byou (?:can |now )?see (?:the |some )?(${MATERIAL_WORDS}) (?:on|around|over|in) (your ${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*)\b`).exec(line);
+    if (onYou) {
+      const mat = materialOf(onYou[1]) ?? "rope";
+      const ghosts = ghostsFor(mat, partsIn(onYou[2]));
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    const youAre = new RegExp(String.raw`\byou are (?:now )?(?:tied up|tied|bound|trussed up)(?: tightly| tight)? (?:in|with) (${MATERIAL_WORDS})\b`).exec(line);
+    if (youAre) {
+      const mat = materialOf(youAre[1]) ?? "rope";
+      const ghosts = ghostsFor(mat, ["arms", "legs", "feet"]);
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    return null;
+  }
+  function matchSeeIllusion(content) {
+    const line = content.toLowerCase().replace(/[.!?]+$/, "").trim();
+    if (/\byou (?:can |will |now )?see yourself (?:again|as you (?:really |actually )?are|properly|clearly|dressed|untied|free|unbound)\b/.test(line)) return null;
+    if (/\b(?:not|never|don't|do not|cannot|can't|won't)\b[^,]*\bsee\b/.test(line)) return null;
+    const lead = SEE_LEAD.exec(line);
+    const rest = lead ? lead[1].trim() : null;
+    if (rest !== null) {
+      const s = matchStrip(rest);
+      if (s) return s;
+    }
+    const look = LOOK_LEAD.exec(line);
+    if (look) {
+      const s = matchStrip(look[1].trim());
+      if (s) return s;
+    }
+    return matchBind(line, rest);
+  }
+  function matchSeeRelease(content) {
+    const line = content.toLowerCase();
+    if (/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold|bonds|bindings|restraints) (?:is|are) gone\b/.test(line)) return "bind";
+    if (/\byou (?:can |now )?see yourself (?:untied|unbound|free|ungagged)\b/.test(line)) return "bind";
+    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|free)\b/.test(line)) return "bind";
+    if (/\byou (?:can |now )?see yourself (?:dressed|clothed)(?: again)?\b/.test(line)) return "strip";
+    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not naked|dressed|clothed)\b/.test(line)) return "strip";
+    if (/\byour clothes are back\b/.test(line)) return "strip";
+    return null;
+  }
+  function seeActionId(s) {
+    if (s.kind === "strip") return s.slots === "all" ? `${SEE_PREFIX}naked` : `${SEE_PREFIX}off:${s.slots.join("+")}`;
+    const rec = (g) => g.record && Object.keys(g.record).length ? `~${Object.entries(g.record).map(([k, v]) => `${k}=${v}`).join(",")}` : "";
+    return `${SEE_PREFIX}bound:${s.ghosts.map((g) => `${g.group}/${g.asset}${rec(g)}`).join("+")}`;
+  }
+  function parseSeeId(id) {
+    if (!id.startsWith(SEE_PREFIX)) return null;
+    const body2 = id.slice(SEE_PREFIX.length);
+    if (body2 === "naked") return { kind: "strip", slots: "all" };
+    if (body2.startsWith("off:")) {
+      const slots = body2.slice(4).split("+").filter((s) => /^\w+$/.test(s));
+      return slots.length ? { kind: "strip", slots } : null;
+    }
+    if (body2.startsWith("bound:")) {
+      const ghosts = body2.slice(6).split("+").map((p) => {
+        const [main, rec] = p.split("~");
+        const [group, asset] = main.split("/");
+        if (!group || !asset || !/^Item\w+$/.test(group) || !/^\w+$/.test(asset)) return null;
+        const record = {};
+        for (const kv of (rec ?? "").split(",")) {
+          const m = /^(\w+)=(\d{1,3})$/.exec(kv);
+          if (m) record[m[1]] = Number(m[2]);
+        }
+        return Object.keys(record).length ? { group, asset, record } : { group, asset };
+      }).filter((g) => !!g);
+      return ghosts.length ? { kind: "bind", ghosts } : null;
+    }
+    return null;
+  }
+  function describeSee(s) {
+    if (s.kind === "strip") {
+      if (s.slots === "all") return "you see yourself naked";
+      const words = [...new Set(s.slots.map((x) => SLOT_WORDS[x] ?? x))];
+      return `you see yourself without your ${words.join(", ")}`;
+    }
+    const byAsset = /* @__PURE__ */ new Map();
+    for (const g of s.ghosts) {
+      let w = ASSET_WORDS[g.asset];
+      if (!w || g.record) {
+        let desc = "";
+        try {
+          const a = typeof AssetGet === "function" ? AssetGet(typeof Player !== "undefined" && Player?.AssetFamily || "Female3DCG", g.group, g.asset) : null;
+          if (typeof a?.Description === "string" && !a.Description.startsWith("MISSING")) desc = a.Description;
+        } catch {
+        }
+        w = desc || w || g.asset.replace(/([a-z])([A-Z])/g, "$1 $2");
+      }
+      byAsset.set(w, [...byAsset.get(w) ?? [], GROUP_WORDS[g.group] ?? g.group.replace(/^Item/, "").toLowerCase()]);
+    }
+    return `you see ${[...byAsset].map(([w, parts]) => `${w} on your ${parts.join(" and ")}`).join(", ")}`;
+  }
+  function seeLine(s) {
+    if (s.kind === "strip") return s.slots === "all" ? "You glance down at yourself, and there is nothing on you at all." : `You glance down: ${describeSee(s).replace(/^you see yourself /, "you're ")}.`;
+    return `You look down and ${describeSee(s).replace(/^you see /, "see ")}, holding you.`;
+  }
+  var SEE_PREFIX, TOP, BOTTOM, GARMENTS, SEE_LEAD, LOOK_LEAD, MATERIAL_ASSETS, MATERIAL_WORDS, PART_WORDS, VERB_MATERIAL, SLOT_WORDS, GROUP_WORDS, ASSET_WORDS;
+  var init_see = __esm({
+    "src/see.ts"() {
+      SEE_PREFIX = "see:";
+      TOP = ["ClothOuter", "Cloth", "ClothAccessory", "Suit", "Corset"];
+      BOTTOM = ["ClothLower", "SuitLower"];
+      GARMENTS = [
+        [/^(?:underwear|lingerie)$/, ["Bra", "Panties", "Garters"]],
+        [/^(?:top|shirt|blouse|dress|clothes on top|sweater|jumper|t-?shirt)$/, ["ClothOuter", "Cloth", "ClothAccessory"]],
+        [/^(?:jacket|coat|hoodie)$/, ["ClothOuter"]],
+        [/^(?:skirt|pants|trousers|jeans|shorts|bottoms)$/, BOTTOM],
+        [/^(?:bra)$/, ["Bra"]],
+        [/^(?:panties|knickers|thong)$/, ["Panties"]],
+        [/^(?:shoes|heels|boots)$/, ["Shoes"]],
+        [/^(?:socks|stockings|tights)$/, ["Socks", "SocksLeft", "SocksRight"]],
+        [/^(?:gloves)$/, ["Gloves"]],
+        [/^(?:suit|bodysuit|leotard)$/, ["Suit", "SuitLower"]],
+        [/^(?:corset)$/, ["Corset"]]
+      ];
+      SEE_LEAD = /\byou (?:can |will |now |suddenly )?see yourself (?:as )?(.+)$/;
+      LOOK_LEAD = /\byou (?:look|appear) (.+?) to yourself\b/;
+      MATERIAL_ASSETS = {
+        rope: {
+          arms: { group: "ItemArms", asset: "HempRope" },
+          legs: { group: "ItemLegs", asset: "HempRope" },
+          feet: { group: "ItemFeet", asset: "HempRope" },
+          torso: { group: "ItemTorso", asset: "HempRopeHarness" },
+          mouth: { group: "ItemMouth", asset: "ClothGag" },
+          eyes: { group: "ItemHead", asset: "ClothBlindfold" }
+        },
+        cuffs: {
+          arms: { group: "ItemArms", asset: "MetalCuffs" },
+          legs: { group: "ItemLegs", asset: "LeatherLegCuffs" },
+          feet: { group: "ItemFeet", asset: "SteelAnkleCuffs" }
+        },
+        chains: {
+          arms: { group: "ItemArms", asset: "Chains" },
+          legs: { group: "ItemLegs", asset: "Chains" },
+          feet: { group: "ItemFeet", asset: "Chains" }
+        },
+        tape: {
+          arms: { group: "ItemArms", asset: "DuctTape" },
+          legs: { group: "ItemLegs", asset: "DuctTape" },
+          feet: { group: "ItemFeet", asset: "DuctTape" },
+          mouth: { group: "ItemMouth", asset: "DuctTape" },
+          eyes: { group: "ItemHead", asset: "DuctTape" }
+        },
+        leather: {
+          mouth: { group: "ItemMouth", asset: "BallGag" },
+          eyes: { group: "ItemHead", asset: "LeatherBlindfold" }
+        }
+      };
+      MATERIAL_WORDS = String.raw`(?:rope|ropes|hemp|cords?|cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs|chains?|tape|duct tape|leather|straps|cloth|silk|a scarf|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)`;
+      PART_WORDS = String.raw`(?:wrists?|arms?|hands?|elbows?|legs?|knees?|thighs?|ankles?|feet|body|chest|torso|mouth|eyes)`;
+      VERB_MATERIAL = { cuffed: "cuffs", shackled: "cuffs", handcuffed: "cuffs", chained: "chains", taped: "tape" };
+      SLOT_WORDS = {
+        ClothOuter: "jacket",
+        Cloth: "top",
+        ClothAccessory: "top",
+        Suit: "bodysuit",
+        Corset: "corset",
+        ClothLower: "skirt",
+        SuitLower: "bodysuit",
+        Bra: "bra",
+        Panties: "panties",
+        Garters: "garters",
+        Shoes: "shoes",
+        Socks: "socks",
+        SocksLeft: "socks",
+        SocksRight: "socks",
+        Gloves: "gloves"
+      };
+      GROUP_WORDS = { ItemArms: "arms", ItemLegs: "legs", ItemFeet: "ankles", ItemTorso: "body", ItemMouth: "mouth", ItemHead: "eyes", ItemHands: "hands" };
+      ASSET_WORDS = {
+        HempRope: "rope",
+        HempRopeHarness: "rope",
+        MetalCuffs: "cuffs",
+        LeatherLegCuffs: "cuffs",
+        SteelAnkleCuffs: "cuffs",
+        Chains: "chains",
+        DuctTape: "tape",
+        BallGag: "a gag",
+        ClothGag: "a cloth gag",
+        LeatherBlindfold: "a blindfold",
+        ClothBlindfold: "a cloth blindfold"
+      };
+    }
+  });
+
+  // src/popup-items.ts
+  function family() {
+    return typeof Player !== "undefined" && Player?.AssetFamily || "Female3DCG";
+  }
+  function assets() {
+    return typeof Asset !== "undefined" && Array.isArray(Asset) ? Asset : [];
+  }
+  function pickSlots() {
+    const seen3 = /* @__PURE__ */ new Map();
+    for (const a of assets()) {
+      const g = a?.Group;
+      if (!g || g.Category !== "Item" || g.Family !== family() || SKIP_GROUPS.has(g.Name) || seen3.has(g.Name)) continue;
+      seen3.set(g.Name, { group: g.Name, label: typeof g.Description === "string" && !g.Description.startsWith("MISSING") ? g.Description : g.Name.replace(/^Item/, "") });
+    }
+    return [...seen3.values()];
+  }
+  function pickItems(group, filter = "") {
+    const f = filter.trim().toLowerCase();
+    return assets().filter((a) => a?.Group?.Name === group && a?.Group?.Family === family() && a.Visible !== false).map((a) => ({ asset: a.Name, label: typeof a.Description === "string" && !a.Description.startsWith("MISSING") ? a.Description : a.Name })).filter((i) => !f || i.label.toLowerCase().includes(f) || i.asset.toLowerCase().includes(f)).sort((x, y) => x.label.localeCompare(y.label));
+  }
+  function pickChoices(group, asset) {
+    const key = `${group}${asset}`;
+    const modular = typeof ModularItemDataLookup !== "undefined" ? ModularItemDataLookup?.[key] : void 0;
+    if (modular && Array.isArray(modular.modules)) {
+      return modular.modules.filter((m) => Array.isArray(m?.Options) && m.Options.length > 1).map((m) => ({
+        key: String(m.Key ?? m.Name),
+        label: pretty(m.Name ?? m.Key),
+        options: m.Options.map((o, i) => ({ label: pretty(o.Name ?? `${m.Name} ${i}`), record: o?.Property?.TypeRecord ?? { [m.Key]: i } }))
+      }));
+    }
+    const typed = typeof TypedItemDataLookup !== "undefined" ? TypedItemDataLookup?.[key] : void 0;
+    if (typed && Array.isArray(typed.options) && typed.options.length > 1) {
+      return [{ key: "typed", label: "Option", options: typed.options.map((o, i) => ({ label: pretty(o.Name ?? String(i)), record: o?.Property?.TypeRecord ?? { typed: i } })) }];
+    }
+    return [];
+  }
+  function pickActionId(group, asset, chosen, choices = pickChoices(group, asset)) {
+    const record = {};
+    for (const c of choices) {
+      const o = c.options[chosen[c.key] ?? 0];
+      if (o) Object.assign(record, o.record);
+    }
+    const ghost = Object.keys(record).length ? { group, asset, record } : { group, asset };
+    return seeActionId({ kind: "bind", ghosts: [ghost] });
+  }
+  function pickLine(label) {
+    const l = label.trim();
+    const article = /s$/i.test(l) ? "" : /^[aeiou]/i.test(l) ? "an " : "a ";
+    return `you see ${article}${l} on you`;
+  }
+  function setPendingPick(line, id, to, now = Date.now()) {
+    pending = { line, id, to, at: now };
+  }
+  function takePendingFor(content, now = Date.now()) {
+    if (!pending || typeof content !== "string") return null;
+    if (now - pending.at > PENDING_MS2) {
+      pending = null;
+      return null;
+    }
+    if (!squash(content).includes(squash(pending.line))) return null;
+    const out = { id: pending.id, to: pending.to };
+    pending = null;
+    return out;
+  }
+  var SKIP_GROUPS, pretty, pending, PENDING_MS2, squash;
+  var init_popup_items = __esm({
+    "src/popup-items.ts"() {
+      init_see();
+      SKIP_GROUPS = /* @__PURE__ */ new Set(["ItemScript", "ItemHidden"]);
+      pretty = (name) => String(name).replace(/([a-z])([A-Z])/g, "$1 $2");
+      pending = null;
+      PENDING_MS2 = 5 * 6e4;
+      squash = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+  });
+
   // src/names.ts
   function displayNameOf(C) {
     const nick = typeof C?.Nickname === "string" ? C.Nickname.trim() : "";
@@ -415,9 +764,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function ensureEffectsAllowed() {
     if (typeof Asset === "undefined" || !Array.isArray(Asset) || Asset.length === 0) return false;
-    const assets = Asset.filter((a) => a?.Name === EMOTICON_ASSET_NAME);
-    if (assets.length === 0) return false;
-    for (const asset of assets) {
+    const assets2 = Asset.filter((a) => a?.Name === EMOTICON_ASSET_NAME);
+    if (assets2.length === 0) return false;
+    for (const asset of assets2) {
       asset.AllowEffect ?? (asset.AllowEffect = []);
       for (const effect of MANAGED_EFFECTS) {
         if (!asset.AllowEffect.includes(effect)) asset.AllowEffect.push(effect);
@@ -1099,7 +1448,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function poseActList() {
     return COMPULSION_ACTS.filter((a) => a.pose).map((a) => a.pose.self).join(", ");
   }
-  var DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, kindEvent, KIND_VIBE, clothEvent, poseEvent, ARMS, POSE_ACTS, DET, GARMENTS, OFF_VERB, OFF_VERB_YOU, CLOTHING_ACTS, COMPULSION_ACTS, COMPULSION_ACT_KEYS;
+  var DEFAULT_ACT_OBJECT, itemEvent, lockEvent, KIND_CHASTE, kindEvent, KIND_VIBE, clothEvent, poseEvent, ARMS, POSE_ACTS, DET, GARMENTS2, OFF_VERB, OFF_VERB_YOU, CLOTHING_ACTS, COMPULSION_ACTS, COMPULSION_ACT_KEYS;
   var init_compulsion_acts = __esm({
     "src/compulsion-acts.ts"() {
       DEFAULT_ACT_OBJECT = String.raw`you(?:r [a-z]+)?`;
@@ -1226,7 +1575,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }
       ];
       DET = String.raw`(?:your |a |an |some |the |new )?`;
-      GARMENTS = [
+      GARMENTS2 = [
         { key: "top", words: String.raw`(?:top|shirt|t shirt|blouse|dress|jacket|coat)`, off: "top", on: "a top", slots: ["Cloth", "ClothOuter"] },
         { key: "skirt", words: String.raw`(?:skirt|pants|trousers|shorts|jeans|bottoms?|leggings)`, off: "skirt", on: "a skirt", slots: ["ClothLower", "SuitLower"] },
         { key: "bra", words: "bra", off: "bra", on: "a bra", slots: ["Bra"] },
@@ -1238,7 +1587,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       OFF_VERB_YOU = String.raw`(?:take|pull|strip|remove|slip|peel)`;
       CLOTHING_ACTS = [
         // One garment before any: the first entry that matches wins ("dress you in a skirt").
-        ...GARMENTS.map((g) => ({
+        ...GARMENTS2.map((g) => ({
           key: `off-${g.key}`,
           label: `takes your ${g.off} off`,
           base: `take your ${g.off} off`,
@@ -1258,7 +1607,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           activities: [],
           clothes: { dir: "off", slots: [] }
         },
-        ...GARMENTS.map((g) => ({
+        ...GARMENTS2.map((g) => ({
           key: `on-${g.key}`,
           label: `puts ${g.on} on you`,
           base: `put ${g.on} on you`,
@@ -3286,11 +3635,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return !!slot && stripSlots.includes(slot);
   }
   function buildGhosts(target, ghosts) {
-    const family = Player?.AssetFamily ?? "Female3DCG";
+    const family2 = Player?.AssetFamily ?? "Female3DCG";
     const out = [];
     for (const g of ghosts) {
       try {
-        const asset = typeof AssetGet === "function" ? AssetGet(family, g.group, g.asset) : null;
+        const asset = typeof AssetGet === "function" ? AssetGet(family2, g.group, g.asset) : null;
         if (!asset) {
           warn(`illusion: no asset ${g.group}/${g.asset}`);
           continue;
@@ -3449,10 +3798,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function restoreIllusion(items) {
     if (!items?.length) return false;
     if (typeof AssetGet !== "function") return false;
-    const family = Player?.AssetFamily ?? "Female3DCG";
+    const family2 = Player?.AssetFamily ?? "Female3DCG";
     const rebuilt = [];
     for (const item2 of items) {
-      const asset = AssetGet(family, item2.group, item2.name);
+      const asset = AssetGet(family2, item2.group, item2.name);
       if (!asset) {
         warn(`cannot restore illusion \u2014 asset ${item2.group}/${item2.name} not found`);
         return false;
@@ -3616,9 +3965,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function classify(data, metadata) {
     if (data?.Type === "Activity" || metadata?.ActivityName) return "activity";
     if (data?.Type !== "Action") return null;
-    const assets = metadata?.Assets ? Object.values(metadata.Assets) : [];
-    if (assets.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
-    if (assets.length > 0) return "clothing";
+    const assets2 = metadata?.Assets ? Object.values(metadata.Assets) : [];
+    if (assets2.some((a) => isItemSlot(a?.Group, a?.IsRestraint))) return "bondage";
+    if (assets2.length > 0) return "clothing";
     const group = metadata?.FocusGroup;
     if (group) return isItemSlot(group) ? "bondage" : "clothing";
     const tag = typeof data?.Content === "string" ? ACTION_TAGS[data.Content] : void 0;
@@ -3826,270 +4175,6 @@ One of mods you are using is using an old version of SDK. It will work for now b
       blockedGroups = /* @__PURE__ */ new Map();
       blockAllSelfTouch = false;
       commandInProgress = false;
-    }
-  });
-
-  // src/see.ts
-  function garmentSlots(word) {
-    for (const [re, slots] of GARMENTS2) if (re.test(word)) return slots;
-    return null;
-  }
-  function matchStrip(rest) {
-    if (/^(?:completely |totally |stark |entirely )?(?:naked|nude|undressed|bare|unclothed)\b/.test(rest)) return { kind: "strip", slots: "all" };
-    if (/^(?:with nothing on|wearing nothing|without (?:any |your )?clothes)\b/.test(rest)) return { kind: "strip", slots: "all" };
-    if (/^topless\b/.test(rest)) return { kind: "strip", slots: [...TOP, "Bra"] };
-    if (/^bottomless\b/.test(rest)) return { kind: "strip", slots: [...BOTTOM, "Panties", "Garters"] };
-    if (/^(?:in|wearing) (?:only |just |nothing but )?(?:your )?(?:underwear|lingerie)\b/.test(rest)) return { kind: "strip", slots: [...TOP, ...BOTTOM, "Gloves"] };
-    const without = /^without (?:your |a |any )?(.+)$/.exec(rest);
-    if (without) {
-      const slots = [];
-      for (const raw of without[1].split(/\s*(?:,|\band\b|\bor\b)\s*(?:your |a |any )?/)) {
-        const word = raw.trim().replace(/\b(?:on|anymore|any more|now)$/, "").trim();
-        if (!word) continue;
-        const got = garmentSlots(word);
-        if (!got) break;
-        for (const s of got) if (!slots.includes(s)) slots.push(s);
-      }
-      if (slots.length) return { kind: "strip", slots };
-    }
-    return null;
-  }
-  function materialOf(word) {
-    if (!word) return null;
-    if (/^(?:rope|ropes|hemp|cord|cords|rope bindings)$/.test(word)) return "rope";
-    if (/^(?:cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs)$/.test(word)) return "cuffs";
-    if (/^(?:chains?|chain)$/.test(word)) return "chains";
-    if (/^(?:tape|duct tape|duck tape)$/.test(word)) return "tape";
-    if (/^(?:leather|straps|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)$/.test(word)) return "leather";
-    if (/^(?:cloth|a cloth|silk|a scarf|scarf)$/.test(word)) return "rope";
-    return null;
-  }
-  function partOf(word) {
-    if (/^(?:wrists?|arms?|hands?|elbows?)$/.test(word)) return "arms";
-    if (/^(?:legs?|knees?|thighs?)$/.test(word)) return "legs";
-    if (/^(?:ankles?|feet|foot)$/.test(word)) return "feet";
-    if (/^(?:body|chest|torso|breasts)$/.test(word)) return "torso";
-    if (/^(?:mouth|lips)$/.test(word)) return "mouth";
-    if (/^(?:eyes)$/.test(word)) return "eyes";
-    return null;
-  }
-  function ghostsFor(material, parts) {
-    const out = [];
-    for (const p of parts) {
-      const g = MATERIAL_ASSETS[material][p] ?? (p === "mouth" || p === "eyes" ? MATERIAL_ASSETS.leather[p] : MATERIAL_ASSETS.rope[p === "torso" ? "torso" : p]);
-      if (g && !out.some((o) => o.group === g.group)) out.push(g);
-    }
-    return out;
-  }
-  function partsIn(text2) {
-    const parts = [];
-    for (const m of text2.matchAll(new RegExp(String.raw`\b${PART_WORDS}\b`, "g"))) {
-      const p = partOf(m[0]);
-      if (p && !parts.includes(p)) parts.push(p);
-    }
-    return parts;
-  }
-  function matchBind(line, rest) {
-    if (rest !== null) {
-      const m = new RegExp(String.raw`^(?:all )?(tied up|tied|bound|trussed up|cuffed|handcuffed|shackled|chained(?: up)?|taped(?: up)?|gagged|blindfolded)(?: (?:in|with) (${MATERIAL_WORDS}))?(?: and (gagged|blindfolded))?\b`).exec(rest);
-      if (m) {
-        const verb = m[1].replace(/ up$/, "");
-        const mat = materialOf(m[2]) ?? VERB_MATERIAL[verb] ?? (verb === "gagged" || verb === "blindfolded" ? "leather" : "rope");
-        let parts = verb === "gagged" ? ["mouth"] : verb === "blindfolded" ? ["eyes"] : verb === "cuffed" || verb === "handcuffed" || verb === "shackled" || verb === "chained" ? ["arms", "feet"] : ["arms", "legs", "feet"];
-        if (m[3]) parts = [...parts, m[3] === "gagged" ? "mouth" : "eyes"];
-        const ghosts = ghostsFor(mat, parts);
-        if (m[3] && mat !== "leather" && mat !== "rope" && mat !== "tape") {
-          const extra = MATERIAL_ASSETS.leather[m[3] === "gagged" ? "mouth" : "eyes"];
-          if (!ghosts.some((g) => g.group === extra.group)) ghosts.push(extra);
-        }
-        return ghosts.length ? { kind: "bind", ghosts } : null;
-      }
-      const withParts = new RegExp(String.raw`^with ((?:your )?${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (tied|bound|cuffed|chained|taped)(?: (?:together|up|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(rest);
-      if (withParts) {
-        const mat = materialOf(withParts[3]) ?? VERB_MATERIAL[withParts[2]] ?? "rope";
-        const ghosts = ghostsFor(mat, partsIn(withParts[1]));
-        return ghosts.length ? { kind: "bind", ghosts } : null;
-      }
-    }
-    const yours = new RegExp(String.raw`\byour (${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*) (?:are|is) (?:now |all )?(tied|bound|cuffed|chained|taped)(?: (?:together|up|tight|tightly|behind your back))?(?: (?:in|with) (${MATERIAL_WORDS}))?\b`).exec(line);
-    if (yours) {
-      const mat = materialOf(yours[3]) ?? VERB_MATERIAL[yours[2]] ?? "rope";
-      const ghosts = ghostsFor(mat, partsIn(yours[1]));
-      return ghosts.length ? { kind: "bind", ghosts } : null;
-    }
-    const onYou = new RegExp(String.raw`\byou (?:can |now )?see (?:the |some )?(${MATERIAL_WORDS}) (?:on|around|over|in) (your ${PART_WORDS}(?:(?:,| and) (?:your )?${PART_WORDS})*)\b`).exec(line);
-    if (onYou) {
-      const mat = materialOf(onYou[1]) ?? "rope";
-      const ghosts = ghostsFor(mat, partsIn(onYou[2]));
-      return ghosts.length ? { kind: "bind", ghosts } : null;
-    }
-    const youAre = new RegExp(String.raw`\byou are (?:now )?(?:tied up|tied|bound|trussed up)(?: tightly| tight)? (?:in|with) (${MATERIAL_WORDS})\b`).exec(line);
-    if (youAre) {
-      const mat = materialOf(youAre[1]) ?? "rope";
-      const ghosts = ghostsFor(mat, ["arms", "legs", "feet"]);
-      return ghosts.length ? { kind: "bind", ghosts } : null;
-    }
-    return null;
-  }
-  function matchSeeIllusion(content) {
-    const line = content.toLowerCase().replace(/[.!?]+$/, "").trim();
-    if (/\byou (?:can |will |now )?see yourself (?:again|as you (?:really |actually )?are|properly|clearly|dressed|untied|free|unbound)\b/.test(line)) return null;
-    if (/\b(?:not|never|don't|do not|cannot|can't|won't)\b[^,]*\bsee\b/.test(line)) return null;
-    const lead = SEE_LEAD.exec(line);
-    const rest = lead ? lead[1].trim() : null;
-    if (rest !== null) {
-      const s = matchStrip(rest);
-      if (s) return s;
-    }
-    const look = LOOK_LEAD.exec(line);
-    if (look) {
-      const s = matchStrip(look[1].trim());
-      if (s) return s;
-    }
-    return matchBind(line, rest);
-  }
-  function matchSeeRelease(content) {
-    const line = content.toLowerCase();
-    if (/\bthe (?:ropes?|cuffs|chains|tape|gag|blindfold|bonds|bindings|restraints) (?:is|are) gone\b/.test(line)) return "bind";
-    if (/\byou (?:can |now )?see yourself (?:untied|unbound|free|ungagged)\b/.test(line)) return "bind";
-    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not tied|untied|not bound|unbound|free)\b/.test(line)) return "bind";
-    if (/\byou (?:can |now )?see yourself (?:dressed|clothed)(?: again)?\b/.test(line)) return "strip";
-    if (/\byou (?:see|notice|realise|realize) (?:that )?you are (?:not naked|dressed|clothed)\b/.test(line)) return "strip";
-    if (/\byour clothes are back\b/.test(line)) return "strip";
-    return null;
-  }
-  function seeActionId(s) {
-    if (s.kind === "strip") return s.slots === "all" ? `${SEE_PREFIX}naked` : `${SEE_PREFIX}off:${s.slots.join("+")}`;
-    const rec = (g) => g.record && Object.keys(g.record).length ? `~${Object.entries(g.record).map(([k, v]) => `${k}=${v}`).join(",")}` : "";
-    return `${SEE_PREFIX}bound:${s.ghosts.map((g) => `${g.group}/${g.asset}${rec(g)}`).join("+")}`;
-  }
-  function parseSeeId(id) {
-    if (!id.startsWith(SEE_PREFIX)) return null;
-    const body2 = id.slice(SEE_PREFIX.length);
-    if (body2 === "naked") return { kind: "strip", slots: "all" };
-    if (body2.startsWith("off:")) {
-      const slots = body2.slice(4).split("+").filter((s) => /^\w+$/.test(s));
-      return slots.length ? { kind: "strip", slots } : null;
-    }
-    if (body2.startsWith("bound:")) {
-      const ghosts = body2.slice(6).split("+").map((p) => {
-        const [main, rec] = p.split("~");
-        const [group, asset] = main.split("/");
-        if (!group || !asset || !/^Item\w+$/.test(group) || !/^\w+$/.test(asset)) return null;
-        const record = {};
-        for (const kv of (rec ?? "").split(",")) {
-          const m = /^(\w+)=(\d{1,3})$/.exec(kv);
-          if (m) record[m[1]] = Number(m[2]);
-        }
-        return Object.keys(record).length ? { group, asset, record } : { group, asset };
-      }).filter((g) => !!g);
-      return ghosts.length ? { kind: "bind", ghosts } : null;
-    }
-    return null;
-  }
-  function describeSee(s) {
-    if (s.kind === "strip") {
-      if (s.slots === "all") return "you see yourself naked";
-      const words = [...new Set(s.slots.map((x) => SLOT_WORDS[x] ?? x))];
-      return `you see yourself without your ${words.join(", ")}`;
-    }
-    const byAsset = /* @__PURE__ */ new Map();
-    for (const g of s.ghosts) {
-      const w = ASSET_WORDS[g.asset] ?? g.asset;
-      byAsset.set(w, [...byAsset.get(w) ?? [], GROUP_WORDS[g.group] ?? g.group]);
-    }
-    return `you see ${[...byAsset].map(([w, parts]) => `${w} on your ${parts.join(" and ")}`).join(", ")}`;
-  }
-  function seeLine(s) {
-    if (s.kind === "strip") return s.slots === "all" ? "You glance down at yourself, and there is nothing on you at all." : `You glance down: ${describeSee(s).replace(/^you see yourself /, "you're ")}.`;
-    return `You look down and ${describeSee(s).replace(/^you see /, "see ")}, holding you.`;
-  }
-  var SEE_PREFIX, TOP, BOTTOM, GARMENTS2, SEE_LEAD, LOOK_LEAD, MATERIAL_ASSETS, MATERIAL_WORDS, PART_WORDS, VERB_MATERIAL, SLOT_WORDS, GROUP_WORDS, ASSET_WORDS;
-  var init_see = __esm({
-    "src/see.ts"() {
-      SEE_PREFIX = "see:";
-      TOP = ["ClothOuter", "Cloth", "ClothAccessory", "Suit", "Corset"];
-      BOTTOM = ["ClothLower", "SuitLower"];
-      GARMENTS2 = [
-        [/^(?:underwear|lingerie)$/, ["Bra", "Panties", "Garters"]],
-        [/^(?:top|shirt|blouse|dress|clothes on top|sweater|jumper|t-?shirt)$/, ["ClothOuter", "Cloth", "ClothAccessory"]],
-        [/^(?:jacket|coat|hoodie)$/, ["ClothOuter"]],
-        [/^(?:skirt|pants|trousers|jeans|shorts|bottoms)$/, BOTTOM],
-        [/^(?:bra)$/, ["Bra"]],
-        [/^(?:panties|knickers|thong)$/, ["Panties"]],
-        [/^(?:shoes|heels|boots)$/, ["Shoes"]],
-        [/^(?:socks|stockings|tights)$/, ["Socks", "SocksLeft", "SocksRight"]],
-        [/^(?:gloves)$/, ["Gloves"]],
-        [/^(?:suit|bodysuit|leotard)$/, ["Suit", "SuitLower"]],
-        [/^(?:corset)$/, ["Corset"]]
-      ];
-      SEE_LEAD = /\byou (?:can |will |now |suddenly )?see yourself (?:as )?(.+)$/;
-      LOOK_LEAD = /\byou (?:look|appear) (.+?) to yourself\b/;
-      MATERIAL_ASSETS = {
-        rope: {
-          arms: { group: "ItemArms", asset: "HempRope" },
-          legs: { group: "ItemLegs", asset: "HempRope" },
-          feet: { group: "ItemFeet", asset: "HempRope" },
-          torso: { group: "ItemTorso", asset: "HempRopeHarness" },
-          mouth: { group: "ItemMouth", asset: "ClothGag" },
-          eyes: { group: "ItemHead", asset: "ClothBlindfold" }
-        },
-        cuffs: {
-          arms: { group: "ItemArms", asset: "MetalCuffs" },
-          legs: { group: "ItemLegs", asset: "LeatherLegCuffs" },
-          feet: { group: "ItemFeet", asset: "SteelAnkleCuffs" }
-        },
-        chains: {
-          arms: { group: "ItemArms", asset: "Chains" },
-          legs: { group: "ItemLegs", asset: "Chains" },
-          feet: { group: "ItemFeet", asset: "Chains" }
-        },
-        tape: {
-          arms: { group: "ItemArms", asset: "DuctTape" },
-          legs: { group: "ItemLegs", asset: "DuctTape" },
-          feet: { group: "ItemFeet", asset: "DuctTape" },
-          mouth: { group: "ItemMouth", asset: "DuctTape" },
-          eyes: { group: "ItemHead", asset: "DuctTape" }
-        },
-        leather: {
-          mouth: { group: "ItemMouth", asset: "BallGag" },
-          eyes: { group: "ItemHead", asset: "LeatherBlindfold" }
-        }
-      };
-      MATERIAL_WORDS = String.raw`(?:rope|ropes|hemp|cords?|cuffs|handcuffs|shackles|irons|metal cuffs|steel cuffs|chains?|tape|duct tape|leather|straps|cloth|silk|a scarf|a ball gag|ball gag|a gag|gag|a blindfold|blindfold)`;
-      PART_WORDS = String.raw`(?:wrists?|arms?|hands?|elbows?|legs?|knees?|thighs?|ankles?|feet|body|chest|torso|mouth|eyes)`;
-      VERB_MATERIAL = { cuffed: "cuffs", shackled: "cuffs", handcuffed: "cuffs", chained: "chains", taped: "tape" };
-      SLOT_WORDS = {
-        ClothOuter: "jacket",
-        Cloth: "top",
-        ClothAccessory: "top",
-        Suit: "bodysuit",
-        Corset: "corset",
-        ClothLower: "skirt",
-        SuitLower: "bodysuit",
-        Bra: "bra",
-        Panties: "panties",
-        Garters: "garters",
-        Shoes: "shoes",
-        Socks: "socks",
-        SocksLeft: "socks",
-        SocksRight: "socks",
-        Gloves: "gloves"
-      };
-      GROUP_WORDS = { ItemArms: "arms", ItemLegs: "legs", ItemFeet: "ankles", ItemTorso: "body", ItemMouth: "mouth", ItemHead: "eyes", ItemHands: "hands" };
-      ASSET_WORDS = {
-        HempRope: "rope",
-        HempRopeHarness: "rope",
-        MetalCuffs: "cuffs",
-        LeatherLegCuffs: "cuffs",
-        SteelAnkleCuffs: "cuffs",
-        Chains: "chains",
-        DuctTape: "tape",
-        BallGag: "a gag",
-        ClothGag: "a cloth gag",
-        LeatherBlindfold: "a blindfold",
-        ClothBlindfold: "a cloth blindfold"
-      };
     }
   });
 
@@ -8923,15 +9008,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     let prevWasVocative = false;
     let namedMe = false;
     const owned = [];
-    let pending3 = [];
+    let pending4 = [];
     let justClaimed = [];
     for (const seg of segments) {
       if (seg.lead.some((n) => mineSet.has(n))) namedMe = true;
       if (!seg.body) {
-        if (pending3.length) {
-          for (const p of pending3) p.owner = [...seg.lead];
-          justClaimed = pending3;
-          pending3 = [];
+        if (pending4.length) {
+          for (const p of pending4) p.owner = [...seg.lead];
+          justClaimed = pending4;
+          pending4 = [];
           current2 = [];
         } else if (prevWasVocative && justClaimed.length) {
           for (const p of justClaimed) p.owner = [...p.owner, ...seg.lead];
@@ -8947,7 +9032,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (seg.lead.length) current2 = seg.lead;
       const entry = { owner: [...current2], body: seg.body };
       owned.push(entry);
-      if (!current2.length) pending3.push(entry);
+      if (!current2.length) pending4.push(entry);
     }
     const floating = owned.some((o) => o.owner.length === 0);
     const forMe = owned.filter((o) => o.owner.some((n) => mineSet.has(n)));
@@ -10542,7 +10627,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return reachable.length ? reachable[Math.floor(Math.random() * reachable.length)] : null;
   }
   function runCommandedActivity(activityName, groupNames, target = Player, tool) {
-    const family = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
+    const family2 = target?.AssetFamily ?? Player?.AssetFamily ?? "Female3DCG";
     for (const groupName of groupNames) {
       let allowed = [];
       try {
@@ -10553,7 +10638,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const matching = allowed.filter((a) => a?.Activity?.Name === activityName && (!a?.Item || itemIsTool(a.Item, tool)));
       const itemActivity = tool ? matching[0] : [...matching].sort((x, y) => toolRank(x?.Item) - toolRank(y?.Item))[0];
       if (!itemActivity) continue;
-      const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family, groupName) : null;
+      const groupObj = typeof AssetGroupGet === "function" ? AssetGroupGet(family2, groupName) : null;
       if (!groupObj) continue;
       try {
         beginCommandedActivity();
@@ -10676,26 +10761,48 @@ One of mods you are using is using an old version of SDK. It will work for now b
       log(`heard an illusion from ${sender} but they didn't say your name \u2014 ignoring`);
       return true;
     }
+    landSee(sender, see);
+    return true;
+  }
+  function handlePickedItem(sender, message) {
+    const see = typeof message?.id === "string" ? parseSeeId(message.id) : null;
+    if (!see || see.kind !== "bind" || see.ghosts.length !== 1) {
+      log(`see-item from ${sender}: not one item`);
+      return;
+    }
+    const g = see.ghosts[0];
+    const asset = typeof AssetGet === "function" ? AssetGet(Player?.AssetFamily ?? "Female3DCG", g.group, g.asset) : null;
+    if (!asset || asset?.Group?.Category !== "Item") {
+      tellHypnotist(sender, `[suggestion] Their client doesn't know that item (${g.group}/${g.asset}).`);
+      return;
+    }
+    if (!isSessionActiveWith(sender)) {
+      log(`see-item from ${sender} but no active session with them`);
+      return;
+    }
+    landSee(sender, see);
+  }
+  function landSee(sender, see) {
     const f = getFeatures();
     if (!f.hypnoEnabled || !f.illusionControl) {
       tellHypnotist(sender, '[suggestion] Refused \u2014 they have not enabled "Illusions".');
-      return true;
+      return;
     }
     const id = seeActionId(see);
     const recorded = recordAction(id);
     if (recorded) {
       tellPlayer(recorded);
-      return true;
+      return;
     }
     const refusal = depthRefusal("illusionControl");
     if (refusal) {
       tellHypnotist(sender, `[suggestion] Refused \u2014 an illusion ${refusal}.`);
-      return true;
+      return;
     }
     const result = showSee(see);
     if (!result) {
       tellHypnotist(sender, "[suggestion] It didn't take: their client couldn't draw it.");
-      return true;
+      return;
     }
     tellPlayer(seeLine(see));
     trackSee(see.kind);
@@ -10709,7 +10816,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (isReal()) tellHypnotist(sender, realReport(makeReal(realAllowedNow)));
       else tellHypnotist(sender, bindReminder(Player?.Nickname || Player?.Name || "Missy"));
     }
-    return true;
+    return;
   }
   function handlePhantomTouch(sender, content) {
     const touch = matchPhantomTouch(content);
@@ -11210,6 +11317,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_arousal();
       init_illusion();
       init_see();
+      init_messaging();
       init_feel_real();
       init_undress();
       init_carry();
@@ -12523,6 +12631,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
         /\bnothing stays with you\b/
       ];
       registerCarryHandlers(applyActionById, undoActionById);
+      registerHiddenHandler("see-item", handlePickedItem);
       registerTriggerRecovery(() => listTriggers().filter((t) => isActive(timerKey(t))).map(holdRecord), restoreHold);
       onWakeKeep((hypnotizedAt) => {
         const kept = listTriggers().filter((t) => isActive(timerKey(t)) && (holdStartedAt.get(timerKey(t)) ?? Infinity) < hypnotizedAt);
@@ -12756,7 +12865,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.22.1", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.23.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12805,7 +12914,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.22.1", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.23.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -12980,7 +13089,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
 
   // src/ask.ts
   function askOpen() {
-    return pending !== null;
+    return pending2 !== null;
   }
   function el(tag, text2, style) {
     const e = document.createElement(tag);
@@ -12989,12 +13098,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return e;
   }
   function secondsLeft(now) {
-    return pending ? Math.max(0, Math.ceil((pending.deadline - now) / 1e3)) : 0;
+    return pending2 ? Math.max(0, Math.ceil((pending2.deadline - now) / 1e3)) : 0;
   }
   function finish(answer) {
-    const p = pending;
+    const p = pending2;
     if (!p) return;
-    pending = null;
+    pending2 = null;
     try {
       clearInterval(p.poll);
       p.el.remove();
@@ -13004,15 +13113,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     p.resolve(answer);
   }
   function tickAsk(now = Date.now()) {
-    if (!pending) return;
-    if (now >= pending.deadline) {
+    if (!pending2) return;
+    if (now >= pending2.deadline) {
       finish("timeout");
       return;
     }
-    pending.countdown.textContent = `No answer in ${secondsLeft(now)} s declines.`;
+    pending2.countdown.textContent = `No answer in ${secondsLeft(now)} s declines.`;
   }
   function askPlayer(opts) {
-    if (pending || typeof document === "undefined" || !document.body) return null;
+    if (pending2 || typeof document === "undefined" || !document.body) return null;
     const timeoutMs = opts.timeoutMs ?? ASK_TIMEOUT_MS;
     const box = el("div", void 0, {
       position: "fixed",
@@ -13048,17 +13157,17 @@ One of mods you are using is using an old version of SDK. It will work for now b
     box.appendChild(row);
     document.body.appendChild(box);
     return new Promise((resolve) => {
-      pending = { resolve, el: box, countdown, deadline: Date.now() + timeoutMs, poll: setInterval(() => tickAsk(), 1e3) };
+      pending2 = { resolve, el: box, countdown, deadline: Date.now() + timeoutMs, poll: setInterval(() => tickAsk(), 1e3) };
       tickAsk();
     });
   }
-  var ASK_ID, ASK_TIMEOUT_MS, pending;
+  var ASK_ID, ASK_TIMEOUT_MS, pending2;
   var init_ask = __esm({
     "src/ask.ts"() {
       init_log();
       ASK_ID = "echs-ask";
       ASK_TIMEOUT_MS = 3e4;
-      pending = null;
+      pending2 = null;
     }
   });
 
@@ -15352,7 +15461,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.1"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -15425,7 +15534,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.22.1"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.23.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -16249,7 +16358,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.22.1", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.23.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -18268,12 +18377,12 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   }
   function settleSoon(by) {
-    const first = pending2 === null;
-    if (by === "adopt" || pending2 !== "adopt") pending2 = by;
+    const first = pending3 === null;
+    if (by === "adopt" || pending3 !== "adopt") pending3 = by;
     if (!first) return;
     Promise.resolve().then(() => {
-      const as = pending2 ?? "adopt";
-      pending2 = null;
+      const as = pending3 ?? "adopt";
+      pending3 = null;
       try {
         settlePose(as);
       } catch (err) {
@@ -18329,7 +18438,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return result;
     });
   }
-  var keyOf, seen2, pending2, isMe2, isPlayer;
+  var keyOf, seen2, pending3, isMe2, isPlayer;
   var init_pose_watch = __esm({
     "src/pose-watch.ts"() {
       init_log();
@@ -18339,7 +18448,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_pose_states();
       keyOf = (m) => Object.keys(m).sort().map((k) => `${k}=${m[k]}`).join(",");
       seen2 = null;
-      pending2 = null;
+      pending3 = null;
       isMe2 = (n) => typeof n === "number" && n === Player?.MemberNumber;
       isPlayer = (C) => !!C && (C === Player || C?.IsPlayer?.());
     }
@@ -18733,8 +18842,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       10,
       ((args, next) => {
         const result = next(args);
-        const pending3 = getPendingPrompt();
-        if (pending3) drawPrompt(pending3.hypnotistName, pending3.remainingMs, pending3.descriptor);
+        const pending4 = getPendingPrompt();
+        if (pending4) drawPrompt(pending4.hypnotistName, pending4.remainingMs, pending4.descriptor);
         const extend = getPendingExtend();
         if (extend) drawExtend(extend.remainingMs, extend.minutes);
         return result;
@@ -20034,7 +20143,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.22.1"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.23.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -20173,6 +20282,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (!isOpen) continue;
       const list = el2("div", "echs-pop-list");
       if (cat.key === "touch") list.appendChild(touchPicker(who, status, gates));
+      if (cat.key === "clothes") list.appendChild(itemPicker(who, status, gates));
       for (const it of cat.items) list.appendChild(suggestButton(it, who.name, status, gateOf(it, gates)));
       body2.appendChild(list);
     }
@@ -20259,6 +20369,101 @@ One of mods you are using is using an old version of SDK. It will work for now b
         }, off2)
       );
     }
+    return box;
+  }
+  function itemPicker(subject, status, gates) {
+    const box = el2("div", "echs-pop-picker");
+    box.appendChild(el2("div", "echs-pop-hint", "Bondage picker: any item and its options. Only they see it, until you say it feels real."));
+    const slots = pickSlots();
+    if (!slots.length) {
+      box.appendChild(el2("div", "echs-pop-hint", "BC's items aren't loaded here."));
+      return box;
+    }
+    if (!slots.some((x) => x.group === itemSlot)) itemSlot = slots[0].group;
+    const row = (label2) => {
+      const r = el2("div", "echs-pop-buttons");
+      r.appendChild(el2("span", "echs-pop-pick-label", label2));
+      box.appendChild(r);
+      return r;
+    };
+    const slotSel = el2("select", "echs-pop-select");
+    for (const x of slots) {
+      const o = el2("option", "", x.label);
+      o.value = x.group;
+      if (x.group === itemSlot) o.selected = true;
+      slotSel.appendChild(o);
+    }
+    slotSel.addEventListener("change", () => {
+      itemSlot = slotSel.value;
+      itemAsset = "";
+      itemChosen = {};
+      renderBody();
+    });
+    row("Slot").appendChild(slotSel);
+    const itemRow = row("Item");
+    const search = el2("input", "echs-pop-select");
+    search.type = "text";
+    search.placeholder = "search";
+    search.value = itemFilter;
+    search.size = 10;
+    const itemSel = el2("select", "echs-pop-select");
+    const fill = () => {
+      itemSel.textContent = "";
+      const items = pickItems(itemSlot, itemFilter);
+      const first = el2("option", "", items.length ? `${items.length} item${items.length === 1 ? "" : "s"}\u2026` : "nothing matches");
+      first.value = "";
+      itemSel.appendChild(first);
+      for (const it of items) {
+        const o = el2("option", "", it.label);
+        o.value = it.asset;
+        if (it.asset === itemAsset) o.selected = true;
+        itemSel.appendChild(o);
+      }
+    };
+    fill();
+    search.addEventListener("input", () => {
+      itemFilter = search.value;
+      fill();
+    });
+    itemSel.addEventListener("change", () => {
+      if (!itemSel.value) return;
+      itemAsset = itemSel.value;
+      itemChosen = {};
+      renderBody();
+    });
+    itemRow.appendChild(search);
+    itemRow.appendChild(itemSel);
+    if (!itemAsset) return box;
+    const choices = pickChoices(itemSlot, itemAsset);
+    for (const c of choices) {
+      const sel = el2("select", "echs-pop-select");
+      c.options.forEach((o, i) => {
+        const opt = el2("option", "", o.label);
+        opt.value = String(i);
+        if ((itemChosen[c.key] ?? 0) === i) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", () => {
+        itemChosen[c.key] = Number(sel.value);
+      });
+      row(c.label).appendChild(sel);
+    }
+    const label = pickItems(itemSlot).find((i) => i.asset === itemAsset)?.label ?? itemAsset;
+    const line = pickLine(label);
+    const gate = gateOf({ id: "x-picker-item", label: "", phrase: "", release: false, permission: "illusionControl", alternates: [] }, gates);
+    const go = row("");
+    go.appendChild(
+      chip("type it", suggestionText(subject.name, line), () => {
+        if (finishingStart()) return setStatus(status, `Not added. A picked item can't go into a compulsion yet; plant it with "your trigger word is \u2026" instead.`);
+        const text2 = suggestionText(subject.name, line);
+        setPendingPick(text2, pickActionId(itemSlot, itemAsset, itemChosen, choices), subject.id);
+        typeIt(
+          status,
+          text2,
+          gate === "off" ? `Typed, but ${subject.name} hasn't allowed illusions. It won't land.` : gate === "deeper" ? `Typed, but ${subject.name} isn't deep enough for this yet.` : `Typed. Press Enter: ${subject.name}'s ECHS gets the exact item and options as it's said.`
+        );
+      }, gate === "off")
+    );
     return box;
   }
   function suggestButton(it, name, status, gate) {
@@ -21080,7 +21285,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }, TICK_MS);
     popupTick();
   }
-  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, pickWho, pickPhantom, pickVerb, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, VERSION_VIEWERS, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, LEVEL_HINT, POPUP_CSS;
+  var POPUP_ID, LAUNCHER_ID, STYLE_ID, TICK_MS, DRAG_SLOP, LAUNCHER_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT, KEEP_VISIBLE, MIN_WIDTH, MIN_HEIGHT, SIZE_SAVE_MS, GROUP_ORDER, GROUP_TITLES, open2, timer, expanded, STATUS_START, statusText, lastTyped, tab, suggestOpen, altOpen, chosenSubject, pickWho, pickPhantom, pickVerb, itemSlot, itemAsset, itemFilter, itemChosen, wasSubjectSide, hadSubjects, drawnTab, bodyEl, statusEl, tabsEl, shownKey, VERSION_VIEWERS, shownName, finishing, sizeWatch, sizeTimer, TAB_LABELS, triggerOpen, plantedAskedAt, PLANTED_REASK_MS, keysOpen, heldTabsShut, removeArmed, unlockArmedAt, unlockKeysArmedAt, ownerRemoveArmed, chosenHolder, keysAskedAt, KEYS_REASK_MS, END_EXTREME_ARM_MS, endExtremeArmedAt, awaiting, LEVEL_HINT, POPUP_CSS;
   var init_popup = __esm({
     "src/popup.ts"() {
       init_log();
@@ -21092,6 +21297,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_depth();
       init_extreme();
       init_popup_suggest();
+      init_popup_items();
       init_popup_touch();
       init_popup_triggers();
       init_planted();
@@ -21133,6 +21339,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       pickWho = "self";
       pickPhantom = false;
       pickVerb = 0;
+      itemSlot = "ItemArms";
+      itemAsset = "";
+      itemFilter = "";
+      itemChosen = {};
       wasSubjectSide = false;
       hadSubjects = 0;
       drawnTab = null;
@@ -21332,7 +21542,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.22.1"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.23.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
@@ -21359,7 +21569,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.22.1"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.23.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -21411,6 +21621,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       import_bondage_club_mod_sdk = __toESM(require_bcmodsdk());
       init_log();
       init_messaging();
+      init_popup_items();
       init_commands();
       init_effects();
       init_flavor();
@@ -21438,14 +21649,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.22.1"})`);
+      info(`script loaded (v${"1.23.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.22.1",
+          version: "1.23.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -21581,6 +21792,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("clothing illusion", () => installIllusion(modApi));
       safely("clothing compulsions", () => installOutfitWatch(modApi));
       safely("pose compulsions", () => installPoseWatch(modApi));
+      safely("bondage picker send", () => {
+        modApi.hookFunction("ServerSend", 0, ((args, next) => {
+          const [type, data] = args;
+          const pick3 = type === "ChatRoomChat" && (data?.Type === "Chat" || data?.Type === "Whisper") ? takePendingFor(data?.Content) : null;
+          const out = next(args);
+          if (pick3) sendHiddenMessage({ type: "see-item", id: pick3.id }, pick3.to);
+          return out;
+        }));
+      });
       safely("without-ECHS report", () => {
         onReportWithoutChange(onSettingChanged);
         installWithoutEchs(modApi);
@@ -21594,10 +21814,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.22.1"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.23.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.22.1";
+    page2.__ECHS_LOADED__ = "1.23.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();
