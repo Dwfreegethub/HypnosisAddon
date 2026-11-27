@@ -410,6 +410,8 @@ function lastingLines(): HelpLine[] {
 		dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
 		dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
 		dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
+		dim("General tab, Played without ECHS, tell: (off unless you pick) beeps your BC owner"),
+		dim("or full keyholders if BC shows something changed while ECHS was off."),
 		gap(),
 		head("If something is holding you"),
 		body("Wait for it to wear off · have whoever set it release you · /echs safeword, which always works from any state."),

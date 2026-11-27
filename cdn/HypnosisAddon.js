@@ -1,4 +1,4 @@
-// Erotic Chat Hypnosis Suite (ECHS) v1.19.8. Loaded at runtime by the installed loader;
+// Erotic Chat Hypnosis Suite (ECHS) v1.20.0. Loaded at runtime by the installed loader;
 // this file is not a userscript. Install https://raw.githubusercontent.com/Dwfreegethub/HypnosisAddon/main/HypnosisAddon.user.js
 (() => {
   var __create = Object.create;
@@ -4217,7 +4217,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function startRecovery() {
     const startedAt = Date.now();
     const since = () => Date.now() - startedAt;
-    const tick = () => {
+    const tick2 = () => {
       const known = typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0;
       const inRoom3 = typeof ChatRoomCharacter !== "undefined" && ChatRoomCharacter?.length > 0;
       if (known && inRoom3) {
@@ -4235,8 +4235,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log("recovery: gave up waiting to learn who we are");
       }
     };
-    const poll = setInterval(tick, STARTUP_POLL_MS);
-    tick();
+    const poll = setInterval(tick2, STARTUP_POLL_MS);
+    tick2();
   }
   function attemptRecovery() {
     const outcome = decideRecovery();
@@ -4725,11 +4725,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     pushUpdate();
     log("session: extended by the subject");
   }
-  function expireSession(when) {
+  function expireSession(when2) {
     endSession(
-      when === "away" ? "the trance ran out while you were away" : `the trance ran its full ${timeoutMinutes()} minutes`,
+      when2 === "away" ? "the trance ran out while you were away" : `the trance ran its full ${timeoutMinutes()} minutes`,
       false,
-      when
+      when2
     );
   }
   function endSession(reason, quiet = false, expiry) {
@@ -6021,6 +6021,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (s.inductionSeconds !== void 0 && (typeof s.inductionSeconds !== "number" || !Number.isFinite(s.inductionSeconds))) delete s.inductionSeconds;
     if (s.toyScope !== void 0 && OLD_TOY_SCOPES[s.toyScope]) s.toyScope = OLD_TOY_SCOPES[s.toyScope];
     if (s.toyScope !== void 0 && !TOY_SCOPES.some((r) => r.key === s.toyScope)) delete s.toyScope;
+    if (s.reportWithout !== void 0 && !REPORT_WITHOUT.some((m) => m.key === s.reportWithout)) delete s.reportWithout;
+    if (s.withoutReports !== void 0) {
+      s.withoutReports = Array.isArray(s.withoutReports) ? s.withoutReports.filter((r) => r && Number.isInteger(r.to) && r.to > 0 && typeof r.text === "string" && typeof r.at === "number" && typeof r.name === "string").slice(-20) : [];
+      if (!s.withoutReports.length) delete s.withoutReports;
+    }
     if (s.usingSince !== void 0 && (typeof s.usingSince !== "number" || !Number.isFinite(s.usingSince) || s.usingSince > Date.now() + 864e5)) delete s.usingSince;
     if (s.friendsRung !== true) {
       if (s.triggerScope === "whitelist") s.triggerScope = "friends";
@@ -6144,6 +6149,32 @@ One of mods you are using is using an old version of SDK. It will work for now b
     } catch (err) {
       warn("could not send ECHS settings to the server; they are kept on this device and go with the next save", err);
     }
+  }
+  function getReportWithout() {
+    return loadSettings().reportWithout ?? "off";
+  }
+  function onReportWithoutChange(fn) {
+    reportWithoutListener = fn;
+  }
+  function setReportWithout(mode) {
+    const value = REPORT_WITHOUT.some((m) => m.key === mode) ? mode : "off";
+    const s = loadSettings();
+    const was = s.reportWithout ?? "off";
+    if (value === "off") delete s.reportWithout;
+    else s.reportWithout = value;
+    saveSettings();
+    if (was !== value) reportWithoutListener?.(value);
+    return value;
+  }
+  function getWithoutReports() {
+    const list = loadSettings().withoutReports;
+    return Array.isArray(list) ? list.map((r) => ({ ...r })) : [];
+  }
+  function setWithoutReports(list) {
+    const s = loadSettings();
+    if (list.length) s.withoutReports = list.slice(-20);
+    else delete s.withoutReports;
+    saveSettings();
   }
   function getUsingSince() {
     const s = loadSettings();
@@ -6825,7 +6856,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     saveSettings();
     return value;
   }
-  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, ACCESS_LEVELS, MAX_ACCESS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES, TRIGGER_VIEWS;
+  var import_lz_string, SETTINGS_KEY, DECAY_PER_DAY, DECAY_RATES, ATTEMPT_LIMITS, SKILL_HONOUR_RUNGS, SKILL_HONOUR_OFFERED, DEFAULT_SKILL_HONOUR, DEFAULT_MAX_ATTEMPTS, TRIGGER_CONDITIONS, TRIGGER_SCOPE_KEYS, cached, cachedFromAccount, lastLoadError, accountSyncPending, REPORT_WITHOUT, reportWithoutListener, LEGACY_GATE_TIERS, decaySavePending, PERMISSION_KEYS, DEEPEST_TIERS, DEFAULT_DEEPEST, DEFAULT_STANCES, DEFAULT_DEFAULT_STANCE, AWAY_STANCES, DEFAULT_AWAY_STANCE, TOY_SCOPES, DEFAULT_TOY_SCOPE, OLD_TOY_SCOPES, INDUCTION_TIMES, DEFAULT_INDUCTION_SECONDS, MIN_INDUCTION_SECONDS, PULSE_COLORS, DEFAULT_PULSE_CUSTOM, TRANCE_EYES, OLD_TRANCE_EYES, TRANCE_EYE_COLORS, SPIRAL_STRENGTHS, SCREEN_EFFECTS, ECHS_ICON_SPOTS, lockField, MAX_KEYHOLDERS, MAX_REMOTE_LOG, KEY_LEVELS, ACCESS_LEVELS, MAX_ACCESS, MAX_PLANTED_SUBJECTS, EXTREME_TRIAL_DAYS, EXTREME_MONTH_DAYS, TRIGGER_LIFESPANS, DROP_MODES, TRIGGER_VIEWS;
   var init_storage = __esm({
     "src/storage.ts"() {
       import_lz_string = __toESM(require_lz_string());
@@ -6876,6 +6907,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       cachedFromAccount = false;
       lastLoadError = "";
       accountSyncPending = false;
+      REPORT_WITHOUT = [
+        { key: "off", label: "Nobody (off)" },
+        { key: "owner", label: "My BC owner" },
+        { key: "full", label: "My full keyholders" },
+        { key: "both", label: "Owner and full keyholders" }
+      ];
+      reportWithoutListener = null;
       LEGACY_GATE_TIERS = { drifting: 0, yielding: 20, entranced: 40, deep: 60, blank: 80 };
       decaySavePending = false;
       PERMISSION_KEYS = [
@@ -7053,8 +7091,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
   }
   function plantedTitle(entry, compulsionNo) {
     if (entry.word) return `"${entry.word}"`;
-    const when = entry.when || "No word";
-    return compulsionNo ? `Compulsion ${compulsionNo}: ${when}` : when;
+    const when2 = entry.when || "No word";
+    return compulsionNo ? `Compulsion ${compulsionNo}: ${when2}` : when2;
   }
   function compulsionNumbers(entries) {
     let n = 0;
@@ -8600,10 +8638,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const captured = match[1];
       const sayAt = SAY_NORM.exec(captured);
       if (sayAt && sayAt.index > 0) {
-        const say = parseSayClause(content);
-        if (say) {
+        const say2 = parseSayClause(content);
+        if (say2) {
           const head2 = captured.slice(0, sayAt.index).replace(/(?:\s+(?:and|then|so))+\s*$/, "");
-          return { kind: "start", phrase: cleanPhrase(head2), say };
+          return { kind: "start", phrase: cleanPhrase(head2), say: say2 };
         }
       }
       for (const drop of TRIGGER_DROP) {
@@ -8619,8 +8657,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
     if (TRIGGER_DROP.some((p) => p.test(text2))) return { kind: "drop" };
     if (SAY_NORM.test(text2)) {
-      const say = parseSayClause(content);
-      if (say) return { kind: "say", ...say };
+      const say2 = parseSayClause(content);
+      if (say2) return { kind: "say", ...say2 };
     }
     return null;
   }
@@ -8638,9 +8676,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return { rest, raw, options };
   }
   function recordRest(sender, rest, raw) {
-    const say = SAY_NORM.test(rest) ? parseSayClause(raw) : null;
-    if (say) {
-      const sayLine = recordAction(sayActionId(say.text, say.times));
+    const say2 = SAY_NORM.test(rest) ? parseSayClause(raw) : null;
+    if (say2) {
+      const sayLine = recordAction(sayActionId(say2.text, say2.times));
       if (sayLine) tellPlayer(sayLine);
       return;
     }
@@ -8723,9 +8761,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
       return true;
     }
     const before = describeRecording();
-    const say = SAY_NORM.test(parsed.rest) ? parseSayClause(raw) : null;
-    if (say) {
-      const sayLine = recordAction(sayActionId(say.text, say.times));
+    const say2 = SAY_NORM.test(parsed.rest) ? parseSayClause(raw) : null;
+    if (say2) {
+      const sayLine = recordAction(sayActionId(say2.text, say2.times));
       tellLine();
       if (sayLine) tellPlayer(sayLine);
       return true;
@@ -8844,11 +8882,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (steps.length === 1) return;
     const key = drainKey(trigger);
     let i = 1;
-    const tick = () => {
+    const tick2 = () => {
       steps[i++]();
-      if (i < steps.length) scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+      if (i < steps.length) scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick2);
     };
-    scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+    scheduleTimer(key, TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick2);
   }
   function fireDrop(trigger, speaker, strength) {
     const mode = getDropMode();
@@ -9174,8 +9212,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
         reactions++;
         continue;
       }
-      const say = parseSayAction(id);
-      if (say) {
+      const say2 = parseSayAction(id);
+      if (say2) {
         if (!features.forcedSpeech) {
           log(`trigger "${trigger.phrase}": say skipped, forcedSpeech not granted`);
           continue;
@@ -9186,7 +9224,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
           continue;
         }
         compels++;
-        for (let i = 0; i < say.times; i++) steps.push(() => speakForSubject(say.text));
+        for (let i = 0; i < say2.times; i++) steps.push(() => speakForSubject(say2.text));
         continue;
       }
       if (id.startsWith("touch:")) {
@@ -9311,15 +9349,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       if (list.length || isSessionActiveWith(sender) || listTriggers().some((x) => x.installedBy === sender)) tellHypnotist(sender, noSuchCompulsion(n, list.length));
       return;
     }
-    const when = describeConditionFor(t, t.installedBy, "they");
+    const when2 = describeConditionFor(t, t.installedBy, "they");
     if (!(isTriggerInEffect(t) || timerDeadline(drainKey(t)) > 0)) {
-      tellHypnotist(sender, `[trigger] Released, but compulsion ${n} (${when}) was not holding them right now. It is still planted.`);
+      tellHypnotist(sender, `[trigger] Released, but compulsion ${n} (${when2}) was not holding them right now. It is still planted.`);
       return;
     }
     undoTrigger(t);
     tellPlayer("Whatever was holding you lets go.");
     const kept = listTriggers().some((x) => x.key === t.key);
-    tellHypnotistWithList(sender, `[trigger] Released. Compulsion ${n} (${when}) let go; ${kept ? "it is still planted" : "it was one-time, so it is used up"}.`);
+    tellHypnotistWithList(sender, `[trigger] Released. Compulsion ${n} (${when2}) let go; ${kept ? "it is still planted" : "it was one-time, so it is used up"}.`);
   }
   function isTriggerReleaseLine(content) {
     const text2 = normalize(content);
@@ -9381,10 +9419,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
         tellHypnotist(sender, EXTREME_REMOVAL_REFUSED);
         return true;
       }
-      const when = describeConditionFor(t, t.installedBy, "they");
+      const when2 = describeConditionFor(t, t.installedBy, "they");
       const held2 = removeTrigger(t);
       const moved = parsed.n < list.length ? " The ones after it move up a number." : "";
-      tellHypnotistWithList(sender, `[trigger] They forgot compulsion ${parsed.n} (${when}). It will not go off again.${held2 ? " What it was holding lets go." : ""}${moved}`);
+      tellHypnotistWithList(sender, `[trigger] They forgot compulsion ${parsed.n} (${when2}). It will not go off again.${held2 ? " What it was holding lets go." : ""}${moved}`);
       tellPlayer(held2 ? "Whatever was holding you lets go, and something set in you is gone." : "Something that was set in you is gone.");
       return true;
     }
@@ -9501,7 +9539,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const who = twin ? `${t.installedByName} (#${t.installedBy})` : t.installedByName;
     const holding = isTriggerInEffect(t) ? " \xB7 holding you now" : "";
     if (getTriggerView() === "who") return `${who}: ${reveal && t.phrase ? `"${t.phrase}", ` : ""}${describeStrength(t)}${t.spent ? " \xB7 used up" : ""}${holding}`;
-    const when = t.fireOn ? describeCondition(t) : reveal && t.phrase ? `"${t.phrase}"` : "a word (hidden)";
+    const when2 = t.fireOn ? describeCondition(t) : reveal && t.phrase ? `"${t.phrase}"` : "a word (hidden)";
     const acts = t.actions.map(describeAction);
     const does = acts.length ? acts.slice(0, ROW_ACTIONS).join("; ") + (acts.length > ROW_ACTIONS ? ` +${acts.length - ROW_ACTIONS} more` : "") : "nothing yet";
     const tags = [];
@@ -9511,7 +9549,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const strength = describeStrength(t);
     if (!strength.startsWith("full strength")) tags.push(/faded|expired|vague/.test(strength) ? strength.replace(/\s*\(\d+\)$/, "") : "fading");
     if (holding) tags.push("holding you now");
-    return `${who}: ${when} \u2192 ${does}${tags.length ? ` \xB7 ${tags.join(" \xB7 ")}` : ""}`;
+    return `${who}: ${when2} \u2192 ${does}${tags.length ? ` \xB7 ${tags.join(" \xB7 ")}` : ""}`;
   }
   function triggersHiddenLine(count) {
     return `You have ${count} trigger${count === 1 ? "" : "s"} planted. Your "My triggers list" setting (Triggers tab) hides them. /echs forgettrigger all still forgets them.`;
@@ -9532,8 +9570,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       const what = describeConditionFor({ ...r, gate: void 0 }, r.installedBy, "you");
       return `while it holds you, ${what}: ${r.actions.map(describeAction).join("; ")}`;
     }
-    const say = parseSayAction(id);
-    if (say) return `you say "${say.text}"${say.times > 1 ? ` ${say.times} times` : ""}`;
+    const say2 = parseSayAction(id);
+    if (say2) return `you say "${say2.text}"${say2.times > 1 ? ` ${say2.times} times` : ""}`;
     const phantom = parsePhantomId(id);
     if (phantom) return describePhantom(phantom);
     if (id.startsWith("act:")) {
@@ -10107,7 +10145,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function repeatTouch(sender, times, touch) {
     let left = (times ?? 1) - 1;
     if (left <= 0) return;
-    const tick = () => {
+    const tick2 = () => {
       if (!isSessionActiveWith(sender) || !getFeatures().compelActivity || Player?.HasEffect?.("Freeze") && !heldByUs("Freeze")) {
         log(`repeated touch stopped with ${left} to go \u2014 no longer allowed`);
         return;
@@ -10117,9 +10155,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         return;
       }
       left--;
-      if (left > 0) scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+      if (left > 0) scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick2);
     };
-    scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick);
+    scheduleTimer("compel-repeat", TRIGGER_STEP_BASE_MS + Math.random() * TRIGGER_STEP_JITTER_MS, tick2);
   }
   function runVagueTouch(sender) {
     const pick3 = pickVagueZone();
@@ -12018,7 +12056,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return typeof Player === "object" ? Player?.MemberNumber : void 0;
   }
   function presenceFields() {
-    return { version: "1.19.8", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
+    return { version: "1.20.0", showIcon: getFeatures().showEchsIcon !== false, hypnoEnabled: getFeatures().hypnoEnabled === true };
   }
   function notePeer(sender, message) {
     if (sender === me()) return;
@@ -12067,7 +12105,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function iconFor(C) {
     if (!C || typeof C.MemberNumber !== "number") return null;
     if (C.MemberNumber === me()) {
-      return getFeatures().showEchsIcon !== false ? { version: "1.19.8", show: true } : null;
+      return getFeatures().showEchsIcon !== false ? { version: "1.20.0", show: true } : null;
     }
     const peer = peers.get(C.MemberNumber);
     return peer && peer.show ? peer : null;
@@ -13129,6 +13167,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       dim("Ask someone for theirs: /echs keyholder request <name> <level>."),
       dim("Full keys can ask to lock your settings, or who holds your keys, or to start"),
       dim("Extreme; you must accept (your BC owner locks your keys without asking)."),
+      dim("General tab, Played without ECHS, tell: (off unless you pick) beeps your BC owner"),
+      dim("or full keyholders if BC shows something changed while ECHS was off."),
       gap(),
       head("If something is holding you"),
       body("Wait for it to wear off \xB7 have whoever set it release you \xB7 /echs safeword, which always works from any state."),
@@ -14021,6 +14061,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       full("Triggers", "triggerDecay", "Triggers fade without reinforcement", DECAY_RATES, getTriggerDecayRate, (v) => setTriggerDecayRate(v)),
       full("Triggers", "dropTriggers", "Drop triggers", DROP_MODES, getDropMode, (v) => setDropMode(v)),
       full("Triggers", "triggerView", "My triggers list", TRIGGER_VIEWS, getTriggerView, (v) => setTriggerView(v)),
+      full("General", "reportWithout", "Played without ECHS, tell", REPORT_WITHOUT, getReportWithout, (v) => setReportWithout(v)),
       full("Stats", "trustDecay", "Trust fades when you don't see someone", DECAY_RATES, getDecayRate, (v) => setDecayRate(v))
     ];
     for (const gate of DEPTH_GATES) {
@@ -14606,7 +14647,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function drawRenewalPrompt() {
     const p = renewalPrompt();
     if (!p) return;
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.8"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.20.0"}${RELEASE_SUFFIX} \u2014 Extreme`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Decide later (your settings stay read-only)");
     DrawRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "White");
     DrawEmptyRect(PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, "Black", 3);
@@ -14679,7 +14720,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       drawWizard();
       return;
     }
-    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.19.8"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
+    DrawText(`Erotic Chat Hypnosis Suite (ECHS) v${"1.20.0"}${RELEASE_SUFFIX} \u2014 settings`, MainCanvasWidth / 2, TITLE_Y, "Black");
     tipButton(BACK_LEFT, BACK_TOP, BACK_SIZE, BACK_SIZE, "", "White", "Icons/Exit.png", "Exit");
     tipButton(HELP_LEFT2, HELP_TOP2, HELP_SIZE, HELP_SIZE, "?", "White", "", "How this add-on works");
     if (!settingsLocked()) {
@@ -14945,6 +14986,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_effects();
       init_storage();
       init_access();
+      init_storage();
       init_suppression();
       init_selftouch();
       init_arousal();
@@ -15261,6 +15303,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
       FULL_ONLY_TABS = ["General"];
       GENERAL_DROPDOWNS = [
         {
+          // Playing without ECHS (v1.20.0, DW): off by default. Held by the settings locks, unlike the two below.
+          id: "HypnosisAddonReportWithout",
+          label: "Played without ECHS, tell:",
+          options: REPORT_WITHOUT,
+          get: getReportWithout,
+          set: (key) => setReportWithout(key),
+          caption: () => getReportWithout() === "off" ? "Nobody is told and nothing is kept. Pick someone and ECHS beeps them if you play without it." : "If BC shows something changed while ECHS was off, they get a beep. They need you as a friend."
+        },
+        {
           // Where other players' ECHS icons are drawn (v1.7.0).
           id: "HypnosisAddonIconSpot",
           label: "ECHS icons over others:",
@@ -15493,7 +15544,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     if (!lastSeen) return true;
     return compareVersions(current2, lastSeen) > 0;
   }
-  function maybeShowUpdateNotice(freshInstall, current2 = "1.19.8", dev = RELEASE_SUFFIX !== "") {
+  function maybeShowUpdateNotice(freshInstall, current2 = "1.20.0", dev = RELEASE_SUFFIX !== "") {
     if (!/^\d+(\.\d+)*$/.test(current2)) return false;
     const lastSeen = getLastSeenVersion();
     const due = updateNoticeDue(current2, lastSeen, freshInstall, dev);
@@ -15705,15 +15756,15 @@ One of mods you are using is using an old version of SDK. It will work for now b
     return "asked";
   }
   function handleAskedChange(sender, mode, who, c, skipAsk = false) {
-    const say = (ok, text2) => reply(sender, mode, { ok, text: text2 });
+    const say2 = (ok, text2) => reply(sender, mode, { ok, text: text2 });
     if (mode !== "full") {
       const text2 = `Your keys are ${mode}: that needs full keys.`;
-      say(false, text2);
+      say2(false, text2);
       return text2;
     }
     const refused = c.refusal();
     if (refused) {
-      say(false, refused);
+      say2(false, refused);
       return refused;
     }
     const done = () => {
@@ -15721,7 +15772,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       noteRemoteChange({ at: Date.now(), by: sender, byName: who, what: r.what });
       tellPlayer(r.her);
       log(`keyholder ${sender}: ${c.kind} applied`);
-      say(true, r.them);
+      say2(true, r.them);
     };
     if (skipAsk) {
       done();
@@ -15731,36 +15782,36 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const rateKey = `${c.kind}:${sender}`;
     if (now - (lockAskedBy.get(rateKey) ?? -Infinity) < KEY_REQUEST_GAP_MS) {
       const text2 = "You asked them recently. Wait a few minutes before asking again.";
-      say(false, text2);
+      say2(false, text2);
       return text2;
     }
     if (askOpen()) {
       const text2 = "They are answering another question. Try again in a moment.";
-      say(false, text2);
+      say2(false, text2);
       return text2;
     }
     const asked = askPlayer({ title: c.title, lines: c.lines, accept: c.accept, decline: "Decline" });
     if (!asked) {
       const text2 = "Their ECHS could not show them the request.";
-      say(false, text2);
+      say2(false, text2);
       return text2;
     }
     lockAskedBy.set(rateKey, now);
     log(`${who} (#${sender}) asked: ${c.kind}`);
     asked.then((answer) => {
       if (answer !== "accept") {
-        say(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
+        say2(false, answer === "timeout" ? `${herName()} didn't answer in time.` : `${herName()} declined.`);
         if (answer === "timeout") tellPlayer(`${who}'s request ("${c.title}") timed out, so nothing changed.`);
         return;
       }
       if (keyModeFor(sender) !== "full") {
-        say(false, "You no longer hold their full keys, so nothing changed.");
+        say2(false, "You no longer hold their full keys, so nothing changed.");
         tellPlayer(`${who} no longer holds your full keys, so nothing changed.`);
         return;
       }
       const late = c.refusal();
       if (late) {
-        say(false, late);
+        say2(false, late);
         return;
       }
       done();
@@ -17589,6 +17640,321 @@ One of mods you are using is using an old version of SDK. It will work for now b
     }
   });
 
+  // src/without-echs.ts
+  function hash(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+  function lookOf(C) {
+    const items = {};
+    const until = {};
+    const names = {};
+    const clothes = [];
+    for (const item2 of Array.isArray(C?.Appearance) ? C.Appearance : []) {
+      const group = item2?.Asset?.Group?.Name;
+      const asset = item2?.Asset?.Name;
+      if (typeof group !== "string" || typeof asset !== "string") continue;
+      if (group.startsWith("Item")) {
+        const lock = item2?.Property?.LockedBy;
+        items[group] = typeof lock === "string" && lock ? `${asset}/${lock}` : asset;
+        const t = item2?.Property?.RemoveTimer;
+        if (lock && typeof t === "number") until[group] = t;
+        const desc = item2?.Asset?.Description;
+        if (typeof desc === "string" && desc && desc !== asset) names[asset] = desc.slice(0, 40);
+        const gdesc = item2?.Asset?.Group?.Description;
+        if (typeof gdesc === "string" && gdesc && gdesc !== group) names[group] = gdesc.slice(0, 40);
+      } else if (item2?.Asset?.Group?.Clothing) {
+        clothes.push(`${group}:${asset}`);
+      }
+    }
+    const room = typeof C?.LastChatRoom?.Name === "string" ? C.LastChatRoom.Name : "";
+    return { room, items, ...Object.keys(until).length ? { until } : {}, clothes: hash(clothes.sort().join("|")), ...Object.keys(names).length ? { names } : {} };
+  }
+  function sameLook(a, b) {
+    return a.room === b.room && a.clothes === b.clothes && JSON.stringify(sortKeys(a.items)) === JSON.stringify(sortKeys(b.items));
+  }
+  function sortKeys(o) {
+    return Object.entries(o).sort(([x], [y]) => x < y ? -1 : x > y ? 1 : 0);
+  }
+  function differences(before, now, nowMs) {
+    const out = [];
+    if (before.room !== now.room) {
+      if (before.room && !now.room) out.push(`left the room "${before.room}"`);
+      else if (now.room) out.push(`was in the room "${now.room}"`);
+    }
+    const label = (names, key) => names?.[key] ?? now.names?.[key] ?? before.names?.[key] ?? key;
+    const groups = /* @__PURE__ */ new Set([...Object.keys(before.items ?? {}), ...Object.keys(now.items)]);
+    const itemLines = [];
+    for (const g of [...groups].sort()) {
+      const was = before.items?.[g];
+      const is = now.items[g];
+      if (was === is) continue;
+      const [wasAsset, wasLock] = (was ?? "").split("/");
+      const [isAsset, isLock] = (is ?? "").split("/");
+      const where = label(void 0, g);
+      if (wasAsset !== isAsset) {
+        if (!isAsset) itemLines.push(`${label(before.names, wasAsset)} taken off (${where})`);
+        else if (!wasAsset) itemLines.push(`${label(now.names, isAsset)} put on (${where})`);
+        else itemLines.push(`${label(before.names, wasAsset)} changed to ${label(now.names, isAsset)} (${where})`);
+      } else if (wasLock && !isLock) {
+        const t = before.until?.[g];
+        if (typeof t === "number" && t <= nowMs) continue;
+        itemLines.push(`lock taken off the ${label(now.names, isAsset)} (${where})`);
+      } else if (!wasLock && isLock) itemLines.push(`${label(now.names, isAsset)} locked (${where})`);
+      else itemLines.push(`lock changed on the ${label(now.names, isAsset)} (${where})`);
+    }
+    if (itemLines.length) out.push(`restraints changed: ${itemLines.slice(0, 6).join(", ")}${itemLines.length > 6 ? ` and ${itemLines.length - 6} more` : ""}`);
+    if (before.clothes !== now.clothes) out.push("clothes changed");
+    return out;
+  }
+  function parseSeen(raw) {
+    if (typeof raw !== "string" || !raw) return null;
+    try {
+      const s = JSON.parse(raw);
+      if (!s || typeof s.at !== "number" || typeof s.room !== "string" || typeof s.clothes !== "string" || !s.items || typeof s.items !== "object") return null;
+      return s;
+    } catch {
+      return null;
+    }
+  }
+  function when(ms) {
+    try {
+      return new Date(ms).toLocaleString(void 0, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+    } catch {
+      return new Date(ms).toISOString();
+    }
+  }
+  function reportText(name, member, from, to, what) {
+    return `ECHS: ${name} (${member}) was on Bondage Club without ECHS some time between ${when(from)} and ${when(to)}. What shows it: ${what.join("; ")}.`.slice(0, 990);
+  }
+  function recipientsFor(choice, C = Player) {
+    const out = [];
+    const add = (id, name) => {
+      if (typeof id !== "number" || !(id > 0) || id === C?.MemberNumber || out.some((r) => r.id === id)) return;
+      out.push({ id, name: typeof name === "string" && name ? name.slice(0, 60) : `#${id}` });
+    };
+    const own = C?.Ownership;
+    let fullyOwned = false;
+    try {
+      fullyOwned = typeof C?.IsFullyOwned === "function" ? C.IsFullyOwned() === true : own?.Stage === 1;
+    } catch {
+      fullyOwned = own?.Stage === 1;
+    }
+    if ((choice === "owner" || choice === "both") && fullyOwned) add(own?.MemberNumber, own?.Name);
+    if (choice === "full" || choice === "both") {
+      if (fullyOwned && getOwnerKeyMode() === "full") add(own?.MemberNumber, own?.Name);
+      for (const k of listKeyholders()) if (k.mode === "full") add(k.id, k.name);
+    }
+    return out;
+  }
+  function say(line) {
+    toTell.push(line);
+    flushTell();
+  }
+  function flushTell() {
+    if (!toTell.length || typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return;
+    for (const line of toTell.splice(0)) tellPlayer(line);
+  }
+  function loggedIn() {
+    return typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0 && !!Player.ExtensionSettings;
+  }
+  function writeSeen(now = Date.now()) {
+    if (!loggedIn()) return;
+    const look = lookOf(Player);
+    const seen3 = { at: now, ...look };
+    try {
+      Player.ExtensionSettings[SEEN_KEY] = JSON.stringify(seen3);
+      ServerPlayerExtensionSettingsSync(SEEN_KEY);
+      lastWritten = look;
+      lastWrittenAt = now;
+    } catch (err) {
+      warn("could not save the without-ECHS record:", err);
+    }
+  }
+  function clearSeen() {
+    lastWritten = null;
+    lastWrittenAt = 0;
+    if (!loggedIn() || Player.ExtensionSettings[SEEN_KEY] === void 0 || Player.ExtensionSettings[SEEN_KEY] === "") return;
+    try {
+      Player.ExtensionSettings[SEEN_KEY] = "";
+      ServerPlayerExtensionSettingsSync(SEEN_KEY);
+    } catch (err) {
+      warn("could not clear the without-ECHS record:", err);
+    }
+  }
+  function checkAtLogin(now = Date.now()) {
+    if (!loggedIn() || checkedFor === Player.MemberNumber) return [];
+    checkedFor = Player.MemberNumber;
+    const choice = getReportWithout();
+    if (choice === "off") return [];
+    let found = [];
+    const before = parseSeen(Player.ExtensionSettings[SEEN_KEY]);
+    if (before) {
+      found = differences(before, lookOf(Player), now);
+      if (found.length) report(choice, before.at, now, found);
+    }
+    writeSeen(now);
+    return found;
+  }
+  function report(choice, from, to, what) {
+    const name = Player?.Nickname || Player?.Name || "You";
+    const text2 = reportText(name, Player.MemberNumber, from, to, what);
+    const who = recipientsFor(choice);
+    log(`without-ECHS: ${what.join("; ")}; telling ${who.map((w) => w.id).join(", ") || "nobody"}`);
+    const head2 = `ECHS noticed you were on Bondage Club without it (between ${when(from)} and ${when(to)}: ${what.join("; ")}).`;
+    if (!who.length) {
+      const line2 = `${head2} Your setting says to tell ${choice === "owner" ? "your BC owner" : choice === "full" ? "your full keyholders" : "your BC owner and full keyholders"}, but you have none, so nobody was told.`;
+      say(line2);
+      showBeep(line2);
+      return;
+    }
+    const list = getWithoutReports();
+    for (const w of who) list.push({ to: w.id, name: w.name, text: text2, at: to });
+    setWithoutReports(list.slice(-MAX_REPORTS));
+    const line = `${head2} ECHS will beep ${who.map((w) => w.name).join(", ")} about it when they are online, and again when they are in a room with you.`;
+    say(line);
+    showBeep(line);
+    askOnline(to);
+  }
+  function showBeep(text2) {
+    try {
+      if (typeof ServerShowBeep === "function") ServerShowBeep(text2, 15e3, {}, "ECHS");
+    } catch {
+    }
+  }
+  function beep(to, text2) {
+    ServerSend("AccountBeep", { MemberNumber: to, BeepType: "", IsSecret: true, Message: text2 });
+  }
+  function askOnline(now = Date.now()) {
+    if (!getWithoutReports().some((r) => !r.beeped)) return;
+    lastAsked = now;
+    try {
+      ServerSend("AccountQuery", { Query: "OnlineFriends" });
+    } catch (err) {
+      warn("could not ask who is online:", err);
+    }
+  }
+  function inRoomWithHer(member) {
+    if (typeof ServerPlayerIsInChatRoom !== "function" || !ServerPlayerIsInChatRoom()) return false;
+    return Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.some((c) => c?.MemberNumber === member);
+  }
+  function onOnlineFriends(result, now = Date.now()) {
+    if (!Array.isArray(result)) return;
+    const online = new Set(result.map((f) => f?.MemberNumber).filter((n) => typeof n === "number"));
+    const list = getWithoutReports();
+    let changed = false;
+    const keep = [];
+    for (const r of list) {
+      if (!r.beeped && online.has(r.to)) {
+        beep(r.to, r.text);
+        r.beeped = now;
+        changed = true;
+        if (inRoomWithHer(r.to)) {
+          say(`ECHS beeped ${r.name} that you were on Bondage Club without it.`);
+          continue;
+        }
+        say(`ECHS beeped ${r.name} that you were on Bondage Club without it. It will again when they are in a room with you.`);
+      }
+      keep.push(r);
+    }
+    if (changed) setWithoutReports(keep);
+  }
+  function tick(now = Date.now()) {
+    flushTell();
+    if (!loggedIn()) return;
+    if (checkedFor !== Player.MemberNumber) checkAtLogin(now);
+    const list = getWithoutReports();
+    if (list.length) {
+      const keep = [];
+      let changed = false;
+      for (const r of list) {
+        if (inRoomWithHer(r.to)) {
+          if (!r.beeped || now - r.beeped > SAME_BEEP_MS) beep(r.to, r.text);
+          say(`ECHS beeped ${r.name} that you were on Bondage Club without it, now they are in a room with you.`);
+          changed = true;
+          continue;
+        }
+        if (now - r.at > REPORT_KEEP_MS) {
+          say(r.beeped ? `ECHS beeped ${r.name} once about playing without it, but they were not in a room with you within 7 days, so that report is done.` : `ECHS could not reach ${r.name} within 7 days about playing without it, so that report was dropped.`);
+          changed = true;
+          continue;
+        }
+        keep.push(r);
+      }
+      if (changed) setWithoutReports(keep);
+      if (now - lastAsked >= ONLINE_ASK_MS) askOnline(now);
+    }
+    if (getReportWithout() === "off") return;
+    const look = lookOf(Player);
+    if (!lastWritten || !sameLook(look, lastWritten) || now - lastWrittenAt >= SEEN_REFRESH_MS) writeSeen(now);
+  }
+  function onSettingChanged(choice) {
+    if (choice === "off") clearSeen();
+    else if (loggedIn()) {
+      checkedFor = Player.MemberNumber;
+      writeSeen();
+    }
+  }
+  function installWithoutEchs(modApi2) {
+    modApi2.hookFunction("LoginResponse", 0, (args, next) => {
+      const out = next(args);
+      try {
+        checkAtLogin();
+      } catch (err) {
+        warn("without-ECHS check failed:", err);
+      }
+      return out;
+    });
+    modApi2.hookFunction("ServerAccountQueryResult", 0, (args, next) => {
+      const out = next(args);
+      try {
+        if (args[0]?.Query === "OnlineFriends") onOnlineFriends(args[0].Result);
+      } catch (err) {
+        warn("without-ECHS online check failed:", err);
+      }
+      return out;
+    });
+    try {
+      if (loggedIn()) checkAtLogin();
+    } catch (err) {
+      warn("without-ECHS check failed:", err);
+    }
+    setInterval(() => {
+      try {
+        tick();
+      } catch (err) {
+        warn("without-ECHS poll failed:", err);
+      }
+    }, SEEN_POLL_MS);
+    try {
+      window.addEventListener("pagehide", () => {
+        if (getReportWithout() !== "off" && checkedFor === Player?.MemberNumber) writeSeen();
+      });
+    } catch {
+    }
+  }
+  var SEEN_KEY, SEEN_POLL_MS, SEEN_REFRESH_MS, ONLINE_ASK_MS, REPORT_KEEP_MS, SAME_BEEP_MS, MAX_REPORTS, checkedFor, lastWritten, lastWrittenAt, lastAsked, toTell;
+  var init_without_echs = __esm({
+    "src/without-echs.ts"() {
+      init_log();
+      init_notify();
+      init_storage();
+      SEEN_KEY = "HypnosisAddonSeen";
+      SEEN_POLL_MS = 1e4;
+      SEEN_REFRESH_MS = 10 * 6e4;
+      ONLINE_ASK_MS = 5 * 6e4;
+      REPORT_KEEP_MS = 7 * 24 * 60 * 6e4;
+      SAME_BEEP_MS = 2 * 6e4;
+      MAX_REPORTS = 20;
+      checkedFor = 0;
+      lastWritten = null;
+      lastWrittenAt = 0;
+      lastAsked = 0;
+      toTell = [];
+    }
+  });
+
   // src/prompt.ts
   function buttonLeft(index) {
     return FIRST_BUTTON_LEFT + index * (BUTTON_WIDTH + BUTTON_GAP);
@@ -18958,7 +19324,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     win.id = POPUP_ID;
     const head2 = el2("div", "echs-pop-head");
     head2.appendChild(el2("span", "echs-pop-title", "ECHS"));
-    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.19.8"}${RELEASE_SUFFIX}`));
+    head2.appendChild(el2("span", "echs-pop-ver", `v${"1.20.0"}${RELEASE_SUFFIX}`));
     const gear = el2("button", "echs-pop-x echs-pop-gear", "\u2699");
     gear.type = "button";
     gear.title = "ECHS settings";
@@ -19191,7 +19557,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     const done = gate === "off" ? `Typed, but ${name} hasn't allowed this. It won't land.` : gate === "deeper" ? `Typed, but ${name} isn't deep enough for this yet. Take them deeper first.` : `Typed. Press Enter to say it to ${name}.`;
     const why = gate === "off" ? `${name} hasn't allowed this. ` : gate === "deeper" ? `Needs ${name} deeper. ` : "";
     const start = finishingStart();
-    const say = (phrase, label, cls) => {
+    const say2 = (phrase, label, cls) => {
       const refused = start ? notInTrigger(it, phrase) : null;
       const text2 = start ? `${start}${phrase}` : suggestionText(name, phrase);
       const b = el2("button", `${cls}${refused ? " echs-pop-off" : ""}`, label);
@@ -19211,7 +19577,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
       });
       return b;
     };
-    const main = say(it.phrase, `${it.release ? "\u21BA " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
+    const main = say2(it.phrase, `${it.release ? "\u21BA " : ""}${it.label}`, `echs-pop-item echs-pop-say${it.release ? " echs-pop-release" : ""}`);
     row.appendChild(main);
     if (gate === "deeper") row.appendChild(el2("span", "echs-pop-state echs-pop-tag", "deeper"));
     if (it.instant) {
@@ -19234,7 +19600,7 @@ One of mods you are using is using an old version of SDK. It will work for now b
     wrap.appendChild(row);
     if (isOpen) {
       const alts = el2("div", "echs-pop-alts");
-      for (const a of it.alternates) alts.appendChild(say(a, a, `echs-pop-item echs-pop-alt${it.release ? " echs-pop-release" : ""}`));
+      for (const a of it.alternates) alts.appendChild(say2(a, a, `echs-pop-item echs-pop-alt${it.release ? " echs-pop-release" : ""}`));
       wrap.appendChild(alts);
     }
     return wrap;
@@ -20199,9 +20565,9 @@ One of mods you are using is using an old version of SDK. It will work for now b
         log("a queued orgasm was cancelled by denial");
       }
     }
-    const say = heldAnnouncement();
-    if (say === "first") announce("orgasm-held");
-    else if (say === "repeat") tellPlayer(flavor("orgasm-held"));
+    const say2 = heldAnnouncement();
+    if (say2 === "first") announce("orgasm-held");
+    else if (say2 === "repeat") tellPlayer(flavor("orgasm-held"));
     log(`orgasm held by denial, arousal kept at ${DENIAL_HOLD}`);
   }
   function installDenial(modApi2) {
@@ -20256,11 +20622,11 @@ One of mods you are using is using an old version of SDK. It will work for now b
   function showStartupBanner() {
     if (bannerShown) return;
     bannerShown = true;
-    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.19.8"}${RELEASE_SUFFIX} \xB7 /echs help`);
+    tellPlayer(`Erotic Chat Hypnosis Suite (ECHS) \xB7 v${"1.20.0"}${RELEASE_SUFFIX} \xB7 /echs help`);
   }
   function startStartupBanner() {
     const startedAt = Date.now();
-    const tick = () => {
+    const tick2 = () => {
       const known = typeof Player?.MemberNumber === "number" && Player.MemberNumber > 0;
       const ready = known && typeof ServerPlayerIsInChatRoom === "function" && ServerPlayerIsInChatRoom();
       if (ready) {
@@ -20277,13 +20643,13 @@ One of mods you are using is using an old version of SDK. It will work for now b
       }
       if (Date.now() - startedAt > BANNER_GIVE_UP_MS) clearInterval(poll);
     };
-    const poll = setInterval(tick, BANNER_POLL_MS);
-    tick();
+    const poll = setInterval(tick2, BANNER_POLL_MS);
+    tick2();
   }
   function showLoadedToast() {
     if (typeof document === "undefined" || !document.body) return;
     const el3 = document.createElement("div");
-    el3.textContent = `ECHS v${"1.19.8"}${RELEASE_SUFFIX} loaded`;
+    el3.textContent = `ECHS v${"1.20.0"}${RELEASE_SUFFIX} loaded`;
     Object.assign(el3.style, {
       position: "fixed",
       bottom: "4px",
@@ -20342,6 +20708,8 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_illusion();
       init_outfit_watch();
       init_pose_watch();
+      init_without_echs();
+      init_storage();
       init_prompt();
       init_remote();
       init_session();
@@ -20360,14 +20728,14 @@ One of mods you are using is using an old version of SDK. It will work for now b
       init_storage();
       init_notify();
       init_welcome();
-      info(`script loaded (v${"1.19.8"})`);
+      info(`script loaded (v${"1.20.0"})`);
       safely("loaded toast", showLoadedToast);
       safely("startup banner", startStartupBanner);
       modApi = import_bondage_club_mod_sdk.default.registerMod(
         {
           name: "ECHS",
           fullName: "Erotic Chat Hypnosis Suite",
-          version: "1.19.8",
+          version: "1.20.0",
           repository: "https://github.com/Dwfreegethub/HypnosisAddon"
         },
         // Dev builds get reloaded into the same page repeatedly; allow replacing a prior
@@ -20503,6 +20871,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
       safely("clothing illusion", () => installIllusion(modApi));
       safely("clothing compulsions", () => installOutfitWatch(modApi));
       safely("pose compulsions", () => installPoseWatch(modApi));
+      safely("without-ECHS report", () => {
+        onReportWithoutChange(onSettingChanged);
+        installWithoutEchs(modApi);
+      });
       safely("held items stay on", () => installNoRemove(modApi));
     }
   });
@@ -20512,10 +20884,10 @@ One of mods you are using is using an old version of SDK. It will work for now b
   var page2 = window;
   if (page2.__ECHS_LOADED__) {
     warn(
-      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.19.8"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
+      `ECHS v${page2.__ECHS_LOADED__} is already running on this page, so this copy (v${"1.20.0"}) did nothing. Two loaders are installed (for example Tampermonkey and FUSAM); you only need one.`
     );
   } else {
-    page2.__ECHS_LOADED__ = "1.19.8";
+    page2.__ECHS_LOADED__ = "1.20.0";
     void Promise.resolve().then(() => (init_main(), main_exports));
   }
 })();

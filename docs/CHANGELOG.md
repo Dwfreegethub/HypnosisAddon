@@ -18,6 +18,25 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.20.0) — report playing without ECHS to her owner / full keyholders
+
+DW: "leave everything off by default and have an option somewhere to report you logging in without
+ECHS to your BC owner or BC full keyholders", then "We can beep the person if they are online and then
+again when you see them in person". src/without-echs.ts. ECHS can't see a session it isn't in, so it
+keeps a record on her account under its own ExtensionSettings key (`HypnosisAddonSeen`, plain JSON,
+written only when it changes, refreshed every 10 min, and on pagehide): time, LastChatRoom name, Item*
+groups as asset/lock (+ timer-lock RemoveTimer), a hash of Clothing groups. It is compared straight
+after LoginResponse (R134 Login.js: LoginSetupPlayer sets everything before LoginDone; ServerHandleRelog
+returns early). Checked in R134 ChatRoom.js: Leave and leaving the search set LastChatRoom null; a
+rejoin saves nothing new. So a quiet "rejoin, close tab" is not seen; an offline gap is never reported;
+an expired timer lock is skipped. Delivery: AccountBeep, IsSecret (server app.js: lands only if the
+recipient has her as a friend). Online = listed in the server's OnlineFriends answer (mutual friends),
+so it is known to land; in person = in ChatRoomCharacter (no second beep within 2 min of the online
+one). 7 days then dropped, she's told. Setting `reportWithout` off/owner/full/both (General tab
+dropdown, lockable; a full-keys remote choice). Owner = fully owned (Stage 1), not a trial. Off clears
+the record. Not done: other players' ECHS noticing her in a room without ECHS (the live sighting).
+Tested in test/without-echs.mjs (29, three mutations).
+
 ### Added 2026-11-26 (v1.19.8) — a pose compulsion that holds while she stays in the pose
 
 DW: "Yes, add holds while you kneel". The whileWorn machinery with a pose: `wornHold.pose` is the state
