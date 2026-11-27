@@ -13,6 +13,13 @@ here, please report it and say which version your chat line shows.
 
 ---
 
+## v1.23.1 · 26 November 2026
+
+- **Floor shackles and other freezing items feel real now.** *"They feel real"* used to find nothing
+  to hold with items whose restriction is freezing you in place (such as Floor Shackles). Now they
+  hold you still, and keep you out of your wardrobe, the way the real item does. Letting go never
+  takes away a *"you cannot move"* or a trance that is holding you for its own reasons.
+
 ## v1.23.0 · 26 November 2026
 
 - **Any bondage item, with its options, as an illusion.** The popup's Suggestions tab has a bondage

@@ -39,7 +39,7 @@ globalThis.CharacterLoadSimple = () => shadow;
 // The real items' own effects (live R134 Female3DCG.js), and legs rope's first option adding Slow.
 const ASSETS = {
 	"ItemArms/HempRope": ["Block", "BlockWardrobe"], "ItemLegs/HempRope": [], "ItemFeet/HempRope": [],
-	"ItemMouth/BallGag": ["BlockMouth", "GagMedium"], "ItemHead/LeatherBlindfold": ["BlindNormal", "BlockWardrobe"], "ItemArms/MetalCuffs": ["Lock", "Block", "BlockWardrobe"], "ItemFeet/SteelAnkleCuffs": ["CuffedFeet"],
+	"ItemMouth/BallGag": ["BlockMouth", "GagMedium"], "ItemHead/LeatherBlindfold": ["BlindNormal", "BlockWardrobe"], "ItemArms/MetalCuffs": ["Lock", "Block", "BlockWardrobe"], "ItemFeet/SteelAnkleCuffs": ["CuffedFeet"], "ItemFeet/FloorShackles": ["Freeze", "BlockWardrobe", "MapImmobile"],
 };
 globalThis.AssetGet = (_f, g, a) => (ASSETS[`${g}/${a}`] ? { Name: a, Group: grp(g, { Category: "Item" }), Extended: true, Effect: ASSETS[`${g}/${a}`] } : null);
 globalThis.ExtendedItemInit = (_C, it) => { it.Property = it.Asset.Group.Name === "ItemLegs" ? { Effect: ["Slow", "Freeze"] } : {}; return true; };
@@ -151,6 +151,33 @@ drainPaced();
 check("the word: rope she sees, and it holds", [illusion.currentSee()?.kind, held()], ["bind", ["Block", "Slow"]]);
 session.hardFloorStop();
 check("safeword after the trigger: free", held(), []);
+
+// --- Floor Shackles (v1.23.1, DW live: "Nothing they see can hold anyone"): Freeze, BlockWardrobe,
+// MapImmobile. The shared two are taken when nothing else holds them, and given back only if this put
+// them on and nothing else wants them.
+const all = () => null;
+session.hardFloorStop();
+for (const k of ["hypnoEnabled", "illusionControl", "movementRestriction", "clothingRestriction"]) storage.setFeature(k, true);
+check("awake, nothing holding", [session.isHypnotized?.() ?? false, effects.heldByUs("Freeze")], [false, false]);
+illusion.showSee({ kind: "bind", ghosts: [{ group: "ItemFeet", asset: "FloorShackles" }] });
+const fr = feelReal.makeReal(all);
+check("floor shackles feel real: frozen, wardrobe blocked, can't walk the map", ["Freeze", "BlockWardrobe", "MapImmobile"].map((e) => effects.heldByUs(e)), [true, true, true]);
+check("  the hypnotist is told it holds", /holds their body/.test(feelReal.realReport(fr)), true);
+feelReal.unmakeReal();
+check("  not real: all three off again", ["Freeze", "BlockWardrobe", "MapImmobile"].map((e) => effects.heldByUs(e)), [false, false, false]);
+// A Freeze something else put on first stays when the shackles let go.
+effects.applyEffect("Freeze");
+feelReal.makeReal(all);
+feelReal.unmakeReal();
+check("a Freeze that was already on (\"you cannot move\") stays", effects.heldByUs("Freeze"), true);
+effects.removeEffect("Freeze");
+// One the shackles put on, wanted by the trance by the time they let go, stays too.
+feelReal.makeReal(all);
+session.forceTrance(HYP, 80, 80);
+feelReal.unmakeReal();
+check("a Freeze the trance needs by then stays", effects.heldByUs("Freeze"), true);
+session.hardFloorStop();
+check("the safeword clears everything", ["Freeze", "BlockWardrobe", "MapImmobile"].map((e) => effects.heldByUs(e)), [false, false, false]);
 
 console.log(`feel-real: ${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

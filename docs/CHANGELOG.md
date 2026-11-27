@@ -18,6 +18,17 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Fixed 2026-11-26 (v1.23.1) — "feel real" takes Freeze and BlockWardrobe from items
+
+DW, live: "Missy, you see Floor Shackles on you", "they feel real" → "Nothing they see can hold anyone".
+R134 FloorShackles carry Freeze, BlockWardrobe, MapImmobile (SetPose Spread), and v1.22.0 left the first
+two out on purpose (ECHS holds them for other things). real-effects.ts SHARED_REAL_EFFECTS (Freeze →
+movementRestriction, BlockWardrobe → clothingRestriction); MapImmobile joins the exclusive list.
+feel-real.ts applies a shared one only when not already held (ownedShared) and on letting go removes only
+those, unless voice.ts's setSharedHeldElsewhere says they are still wanted: isHypnotized(), or
+movement-block / movement-lock / clothing-block said or carried. recovery saves seeRealOwned so a reload
+keeps the ownership. test/feel-real.mjs 30 (three mutations caught).
+
 ### Added 2026-11-26 (v1.23.0) — the bondage picker (any item, any option)
 
 DW: "Now we have to figure out how to build all the bondage and options. Most items have several options
