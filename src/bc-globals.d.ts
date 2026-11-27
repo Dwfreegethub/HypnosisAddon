@@ -236,6 +236,8 @@ declare const CraftingDescription: { Decode(description: string): string };
 // AssetMap keyed `Group/Name`). Needed to rebuild an appearance item from stored identity,
 // since the live Asset reference itself cannot be serialised. See illusion.ts.
 declare function AssetGet(family: string, group: string, name: string): any;
+declare function ExtendedItemInit(C: any, item: any, push?: boolean, refresh?: boolean): boolean;
+declare function ExtendedItemSetOptionByRecord(C: any, item: any, record: Record<string, number> | null, options?: { push?: boolean; refresh?: boolean }): void;
 
 // Leashing (ChatRoom.js, R133). ChatRoomLeashPlayer is the MemberNumber of whoever currently
 // holds OUR leash, or null — a mutable page global BC sets from the HoldLeash handshake and

@@ -25,10 +25,13 @@ import {
 	clearIllusion,
 	isIllusionActive,
 	illusionSnapshot,
+	currentSee,
+	showSee,
 	restoreIllusion,
 	describeIllusion,
 	FrozenItem,
 } from "./illusion";
+import { seeActionId, parseSeeId } from "./see";
 import { clearOrgasmDenial } from "./arousal";
 import { applyFollow, releaseFollow, isFollowActive, followTargetId } from "./follow";
 import { restoreTranceEyes } from "./eyes";
@@ -128,6 +131,8 @@ export interface SavedSession {
 	/** The frozen garments themselves, so the ORIGINAL lie comes back rather than a fresh
 	 * snapshot of the truth. Null when no illusion was running. */
 	illusion: FrozenItem[] | null;
+	/** A seeing illusion (v1.21.0), as its action id ("see:naked"). */
+	see?: string;
 	/** Which of OUR BC effects were applied. These ride on the Emoticon item and usually
 	 * survive a reload on their own — but an appearance sync that lands before the
 	 * AllowEffect patch strips them, so re-asserting is the difference between usually and
@@ -213,6 +218,7 @@ export function snapshotLocalState(): Omit<
 		numb: isNumb(),
 		selfTouch: selfTouchSnapshot(),
 		illusion: illusionSnapshot(),
+		...(currentSee() ? { see: seeActionId(currentSee()!) } : {}),
 		// Our record, not the shared item (v0.100.4): the restore re-adopts whatever is saved here as
 		// ours, so saving another add-on's Freeze would make it ours after a reload.
 		effects: OUR_EFFECTS.filter((e) => heldByUs(e)),
@@ -450,6 +456,8 @@ function restoreLocalState(saved: SavedSession): void {
 	// Only if the assets still resolve. They normally will; a BC release that removed one is
 	// the case that would not, and there the honest thing is to say so rather than to show
 	// something other than what was frozen.
+	const see = typeof saved.see === "string" ? parseSeeId(saved.see) : null;
+	if (see && !showSee(see)) tellPlayer("Coming back, you catch sight of yourself as you actually are.");
 	if (saved.illusion?.length) {
 		if (!restoreIllusion(saved.illusion)) {
 			tellPlayer("Coming back, you catch sight of yourself as you actually are.");

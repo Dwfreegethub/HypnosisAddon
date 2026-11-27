@@ -277,6 +277,24 @@ Awareness hides the **chat messages** about what is done to you. It does not cha
 
 The rest of the room sees actual wardrobe changes in real-time. Only the subject's local screen remains locked on the illusion. It changes **what the subject sees**, not what they read: the chat messages about a clothing change still appear unless Clothing Changes awareness (above) is on as well.
 
+**Seeing yourself otherwise** (since v1.21.0, same permission, now called **Illusions**). Her own screen shows her differently from how she is; everyone else sees her as she really is.
+
+| Say | She sees |
+|---|---|
+| *"you see yourself naked"* · *"…nude"* · *"you look naked to yourself"* | no clothes at all (makeup, body and restraints stay) |
+| *"you see yourself topless"* · *"…bottomless"* · *"…in your underwear"* | those clothes gone |
+| *"you see yourself without your bra"* (*panties, top, skirt, shoes, socks, gloves…*, several with *and*) | those gone; say another and it adds to it |
+| *"you see yourself tied up"* · *"you are tied up in rope"* | rope on her arms, legs and ankles |
+| *"your wrists are bound in rope"* · *"your ankles are cuffed"* · *"your arms and legs are chained"* · *"you see tape on your wrists"* | that, there (rope, cuffs, chains, tape) |
+| *"you see yourself gagged"* (*with tape*, *with cloth*) · *"you see yourself blindfolded"* · *"you see yourself cuffed and gagged"* | a gag or blindfold |
+| *"the ropes are gone"* · *"you see yourself untied"* / *"…dressed"* · *"you can see yourself again"* · *"look at yourself"* | — *release* |
+
+* **It never holds her.** The rope is a picture; she can still move and use her hands, and the room sees her free. The hypnotist is told so, with the lines that will hold her: *"you cannot move"*, *"you cannot touch yourself"*.
+* Something she really wears in a spot wins over what she imagines there.
+* While she sees herself naked, chat messages about her clothes being changed are hidden from her; while she sees rope, messages about her restraints are. So her log doesn't contradict what she sees.
+* **One illusion at a time.** A new kind replaces the old one (the hypnotist is told), including the frozen-outfit one above.
+* Works in triggers (*"Missy, your trigger word is ribbon"*, *"you see yourself tied up"*, *"remember trigger"*) and can stay after waking (*"that will stay with you"*). The safeword ends it.
+
 ---
 
 ### Blocking Self-Touch — Self-Touch Control · Yielding (20)

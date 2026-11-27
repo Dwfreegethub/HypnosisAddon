@@ -18,6 +18,28 @@ Nothing was dropped in the move.
 **Adding an entry:** newest at the top, `### <Added|Fixed|Changed|Decided> <date> (<version>) — <what>`.
 The version comes from `package.json`, which is the single source of truth.
 
+### Added 2026-11-26 (v1.21.0) — seeing illusions (ideas doc #7, picture half)
+
+DW: "Lets try Illusions"; on the open question, "Picture, Hypnotist can add hold and remind the tist that
+the illusion does not restrict movement". src/see.ts parses (strip: naked/topless/bottomless/underwear/
+without your X, by undress.ts slots; bind: tied up / cuffed / chained / taped / gagged / blindfolded,
+"your wrists are bound in rope", "you see rope on your ankles", "you are tied up in rope" — the last only
+with a material, so "you are bound to obey" stays) into an action id `see:naked`, `see:off:Bra+Panties`,
+`see:bound:ItemArms/HempRope~typed=2+…` (the ~TypeRecord is for a future popup picker of any item and
+option; DW asked whether all items could be covered). illusion.ts gains a seeing mode beside the freeze:
+the shadow draws her live appearance minus the stripped slots, or plus ghost items built on the shadow
+(AssetGet + ExtendedItemInit(shadow, item, false, false) + ExtendedItemSetOptionByRecord, never pushed);
+a real item in a group wins. One illusion at a time (a new kind replaces, the hypnotist is told).
+suppression.ts hides clothing messages under strip and bondage messages under bind (illusionHides). Voice:
+handleSeeIllusion before phantom (Illusions permission, its earned depth, recordable, BIND_REMINDER to the
+hypnotist); triggers hold it (holding, undo clears); carry and wake keep it (session.ts checks carried
+see: ids); illusion-release / awareness-release end it and drop carried see: ids; recovery saves `see`.
+Assets checked in live R134 Female3DCG(.Extended).js. Permission label "Clothing Illusion" → "Illusions"
+(key unchanged). Next (DW chose): "they feel real", applying the ghost items' BC effects (Block,
+GagMedium, BlindNormal, option effects) through effects.ts under the matching permissions. Tested in
+test/see-illusion.mjs (50, mutations caught); the UI lab mock can't render items, so the picture itself
+needs the live check (script_test.md Z13).
+
 ### Added 2026-11-26 (v1.20.0) — report playing without ECHS to her owner / full keyholders
 
 DW: "leave everything off by default and have an option somewhere to report you logging in without

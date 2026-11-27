@@ -252,7 +252,7 @@ const TABS: Tab[] = [
 			{ key: "compelTouchOthers", label: "Made to Touch Others", needs: "compelActivity", tip: "Lets them aim those commands at someone else in the room (\"kiss Rei\"). Not needed for the hypnotist themselves." },
 			{ key: "arousalControl", label: "Arousal & Orgasm", tip: "Arousal raised or lowered, orgasm denied or forced, and numbness." },
 			{ heading: "Mind" },
-			{ key: "illusionControl", label: "Clothing Illusion (you see old clothes)", tip: "Your own screen shows clothes you have been stripped of. Changes what you see, not your chat log (that is the Awareness tab)." },
+			{ key: "illusionControl", label: "Illusions (you see yourself otherwise)", tip: "Your own screen shows you otherwise than you are: still in clothes you were stripped of, naked while dressed, or tied up while free. Nobody else sees it." },
 		],
 	},
 	{
@@ -291,7 +291,7 @@ const TABS: Tab[] = [
 	},
 	{
 		name: "Awareness",
-		blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Clothing Illusion), and arousal still applies.",
+		blurb: "What you can be made unaware of. Hides the chat message only: your own screen still shows the truth (that is Illusions), and arousal still applies.",
 		rows: [
 			{ key: "suppressClothing", label: "Clothing Changes" },
 			{ key: "suppressBondage", label: "Bondage Changes" },

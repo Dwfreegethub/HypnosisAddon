@@ -37,7 +37,7 @@ Every feature needs both its permission ticked **and** your trance at least as d
 | Hearing only one voice | Hearing | Permissions | 40 | Entranced |
 | Blindness | Sight | Permissions | 40 | Entranced |
 | Words said aloud by a trigger | Made to Speak | Permissions | 40 (and the trigger itself needs 60, earned) | Entranced |
-| Clothing illusion | Clothing Illusion | Permissions | 60, earned | Deep |
+| Illusions | Illusions | Permissions | 60, earned | Deep |
 | Planting triggers | Allow triggers to be planted in you | Triggers | 60, earned | Deep |
 | Carry-forward suggestions | Suggestions that outlive the trance | Triggers | 60, earned | Deep |
 
@@ -90,7 +90,7 @@ What others may do to you. Everything here is off until you turn it on.
 
 | Setting | What It Allows |
 |---|---|
-| **Clothing Illusion (you see old clothes)** | Allows false reflections (your screen renders clothes you have been stripped of). Changes what you **see**, not what your chat log says; that is the Awareness tab. |
+| **Illusions (you see yourself otherwise)** | Called *Clothing Illusion* before v1.21.0. Allows false reflections: your screen renders clothes you have been stripped of, you naked while dressed, or tied up while free ([what to say](What-to-Say#the-clothing-illusion--clothing-illusion--deep-60-earned-only)). Nobody else sees it. |
 
 *(Note: How inductions reach you — attempts, answering ahead of time, toy mode and "sink deeper" — is on the **Inductions** tab. Planted triggers and carry-forward suggestions are managed on the **Triggers** tab, and the triggers already planted in you on the **Planted** tab.)*
 

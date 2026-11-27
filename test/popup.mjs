@@ -261,6 +261,7 @@ for (const c of cats) for (const it of c.items) for (const phrase of [it.phrase,
 		: it.id === "x-carry-all" ? voice.carryLineKind(line) === "all"
 		: it.id === "x-carry-none" ? voice.carryLineKind(line) === "cancel"
 		: it.id === "x-phantom" ? !!(await import("./harness-bundle.mjs")).phantom.matchPhantomTouch(line)
+		: it.id.startsWith("x-see-") ? !!(await import("./harness-bundle.mjs")).see.matchSeeIllusion(line)
 		: it.id === "x-touch-self" ? !!voice.matchActivityCommand(line)
 		: it.id === "x-sip" ? voice.matchActivityCommand(line)?.kind === "sip"
 		: it.id === "x-kiss-me" ? voice.matchTargetedActivityCommand(line, ["Bea"])?.target === "me"

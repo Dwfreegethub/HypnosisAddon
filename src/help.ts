@@ -167,6 +167,10 @@ function vocabularyLines(): HelpLine[] {
 	lines.push(dim("   (Arousal & Orgasm) — a touch only she feels, with a real touch's arousal."));
 	lines.push(dim(`   Also "hands all over you", "a hand squeeze your breasts". The room sees`));
 	lines.push(dim("   a reaction now and then, never where. Numbness stops it too."));
+	lines.push(body(`"you see yourself naked" · "your wrists are bound in rope"`));
+	lines.push(dim("   (Illusions) — only her own screen changes. Also topless, without your bra,"));
+	lines.push(dim("   in your underwear; tied up, cuffed, chained, taped, gagged, blindfolded."));
+	lines.push(dim(`   Rope never holds her. "the ropes are gone" / "you can see yourself again" end it.`));
 	return lines;
 }
 
@@ -220,7 +224,7 @@ function depthTrustLines(): HelpLine[] {
 		body("session-only things — and nothing deeper, ever."),
 		gap(),
 		head("The earned-only three"),
-		body("The clothing illusion, planting triggers, and carrying a suggestion"),
+		body("Illusions, planting triggers, and carrying a suggestion"),
 		body("past waking need EARNED depth — trust, not arousal — because they"),
 		body("outlive the session or lie to you about your own body."),
 		dim("The Depth tab can open the illusion and triggers to arousal for you,"),

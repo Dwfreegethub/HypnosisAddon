@@ -92,6 +92,9 @@ export const EXTRA_ITEMS: { cat: string; item: SuggestItem }[] = [
 	{ cat: "touch", item: { id: "x-cover-mouth", instant: true, label: "cover your mouth", phrase: "cover your mouth", release: false, permission: "compelActivity", alternates: ["grab your collar"] } },
 	// v1.19.0: a phantom touch, felt only by them, under Arousal & Orgasm.
 	{ cat: "touch", item: { id: "x-phantom", instant: true, label: "you feel a hand on your thigh (a touch only they feel)", phrase: "you feel a hand on your thigh", release: false, permission: "arousalControl", alternates: ["you feel lips on your neck", "you feel hands all over you", "you feel a hand squeeze your breasts", "you feel a hand spank your butt"] } },
+	// v1.21.0: the seeing illusions, on her own screen only, under Illusions.
+	{ cat: "clothes", item: { id: "x-see-naked", label: "you see yourself naked (only they see it)", phrase: "you see yourself naked", release: false, permission: "illusionControl", alternates: ["you see yourself topless", "you see yourself without your bra", "you see yourself in your underwear"] } },
+	{ cat: "clothes", item: { id: "x-see-tied", label: "you see yourself tied up (only they see it; doesn't hold them)", phrase: "you see yourself tied up", release: false, permission: "illusionControl", alternates: ["your wrists are bound in rope", "your ankles are cuffed", "you see yourself gagged", "you see yourself blindfolded"] } },
 	{ cat: "senses", item: { id: "x-gag-moan", instant: true, label: "moan into your gag (while gagged)", phrase: "moan", release: false, permission: "compelActivity", alternates: ["whimper", "groan", "giggle", "growl", "mumble"] } },
 ];
 
